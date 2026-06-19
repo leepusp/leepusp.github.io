@@ -1,102 +1,399 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>LEEP BIOINFO</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LEEP BIOINFO · Structure &amp; Evolution of Proteins</title>
+<meta name="description" content="Structural bioinformatics, molecular evolution, comparative genomics and reproducible workflows at the University of São Paulo." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="assets/css/style.css">
+<style>
+  :root{
+    --bg:#0a1422; --bg-2:#0d1b2e; --hero-a:#0d1b2e;
+    --text-d:#e6edf6; --muted-d:#8195b0;
+    --accent:#2563eb; --accent-2:#3b82f6; --accent-3:#38bdf8;
+    --ui:"Space Grotesk", system-ui, sans-serif;
+    --body:"Inter", system-ui, sans-serif;
+    --mono:"IBM Plex Mono", ui-monospace, monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--text-d); font-family:var(--body); -webkit-font-smoothing:antialiased}
+  a{color:inherit}
+
+  .hero{position:relative; min-height:100svh; display:grid; place-items:center; overflow:hidden;
+    background:linear-gradient(165deg,var(--hero-a) 0%, #0a1422 55%, #070f1c 100%)}
+  #scene{position:absolute; inset:0; width:100%; height:100%; z-index:0}
+  .hero::after{content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(120% 92% at 50% 40%, transparent 38%, #060d18aa 100%)}
+  .hero-inner{position:relative; z-index:2; text-align:center; padding:0 24px; max-width:760px}
+  .eyebrow{font-family:var(--mono); font-size:.74rem; letter-spacing:.32em; text-transform:uppercase; color:var(--accent-3); margin:0 0 18px}
+  .hero h1{font-family:var(--ui); font-weight:700; line-height:.98; font-size:clamp(2.6rem,8vw,5.4rem); margin:0}
+  .hero h1 b{color:var(--accent-2)}
+  .hero p.lead{font-size:clamp(1rem,2.4vw,1.22rem); color:#c6d3e6; line-height:1.55; max-width:540px; margin:20px auto 30px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .pill{font-family:var(--ui); font-weight:600; font-size:.92rem; text-decoration:none; padding:11px 20px; border-radius:10px; transition:.16s; border:1px solid transparent}
+  .pill.primary{background:var(--accent); color:#fff}
+  .pill.primary:hover{background:#1d56c9; transform:translateY(-1px)}
+  .pill.ghost{border:1px solid #2c466e; color:#c8d6ea}
+  .pill.ghost:hover{border-color:var(--accent-2); color:#fff; background:#13243c}
+
+  .switch{position:absolute; left:50%; transform:translateX(-50%); bottom:26px; z-index:3; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; max-width:94vw}
+  .switch button{font-family:var(--mono); font-size:.7rem; letter-spacing:.14em; text-transform:uppercase;
+    background:#0e1f3680; border:1px solid #243a5c; color:var(--muted-d); padding:7px 13px; border-radius:20px; cursor:pointer; transition:.15s; backdrop-filter:blur(4px)}
+  .switch button:hover{color:#dce6f4; border-color:#3a5680}
+  .switch button.on{color:#fff; border-color:var(--accent-2); background:#15315a99}
+  .switch .lbl{font-family:var(--mono); font-size:.62rem; letter-spacing:.24em; color:#4d627f; text-transform:uppercase; margin-right:4px}
+  .plevel{position:absolute; left:50%; transform:translateX(-50%); bottom:72px; z-index:3; opacity:0; transition:opacity .4s;
+    font-family:var(--mono); font-size:.72rem; letter-spacing:.26em; text-transform:uppercase; color:var(--accent-3);
+    pointer-events:none; white-space:nowrap}
+
+  .story{background:linear-gradient(180deg,#070f1c, #0a1422 30%, #0d1b2e 100%); padding:7vh 0 10vh}
+  .beat{max-width:880px; margin:0 auto; padding:13vh 28px; min-height:40vh; display:flex; flex-direction:column; justify-content:center}
+  .beat .tag{font-family:var(--mono); font-size:.74rem; letter-spacing:.26em; text-transform:uppercase; color:var(--accent-3); margin-bottom:16px}
+  .beat h2{font-family:var(--ui); font-weight:600; font-size:clamp(1.7rem,5vw,3rem); line-height:1.1; margin:0}
+  .beat h2 b{color:var(--accent-2)}
+  .beat p{font-size:clamp(1rem,2.2vw,1.18rem); color:#aebcd2; line-height:1.6; max-width:560px; margin:18px 0 0}
+  .beat:nth-child(even){align-items:flex-end; text-align:right}
+  .beat:nth-child(even) p{margin-left:auto}
+  .seqline{font-family:var(--mono); font-size:clamp(.8rem,2.4vw,1.05rem); letter-spacing:.14em; color:#5f7aa0; margin-top:26px; word-break:break-all; line-height:2}
+  .seqline span.mut{color:var(--accent-3); transition:color .5s}
+  .beat .cta{justify-content:center; margin-top:30px}
+
+  .reveal{opacity:0; transform:translateY(26px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1; transform:none}
+  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.18s}.reveal.d3{transition-delay:.28s}
+
+  .repos-sec{background:#0d1b2e; padding:70px 24px}
+  .wrap{max-width:1080px; margin:0 auto}
+  .sec-title{font-family:var(--ui); font-weight:700; font-size:1.4rem; margin:0 0 6px}
+  .sec-sub{color:var(--muted-d); margin:0 0 26px; font-size:.96rem}
+  .repos{margin:0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:10px}
+  .repos a{font-family:var(--mono); font-size:.86rem; text-decoration:none; color:var(--accent-3);
+    border:1px solid #243a5c; background:#0f203a; padding:9px 15px; border-radius:9px; transition:.15s}
+  .repos a:hover{border-color:var(--accent-2); background:#15315a; color:#fff}
+  .repos a::before{content:"› "; color:#4d627f}
+
+  footer{background:#091525; color:#9fb0c8; text-align:center; padding:38px 24px; font-size:.85rem; line-height:1.6; border-top:1px solid #16263f}
+  footer b{color:#cdd9ec; font-weight:600}
+
+  @media (max-width:760px){ .beat{min-height:auto; padding:9vh 24px} }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1; transform:none; transition:none}
+  }
+</style>
 </head>
-
 <body>
-  <header class="hero">
-    <div class="hero-content">
-      <h1>LEEP BIOINFO</h1>
-      <p>
-        Structural bioinformatics, molecular evolution, comparative genomics
-        and reproducible workflows at the University of São Paulo.
-      </p>
 
-      <div class="hero-links">
-        <a href="https://leep.icb.usp.br/">Institutional website</a>
-        <a href="https://github.com/leepusp">GitHub organization</a>
-        <a href="viewers/protein.html">Protein viewer</a>
-      </div>
+<section class="hero">
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <p class="eyebrow">Laboratory of Structure &amp; Evolution of Proteins</p>
+    <h1>LEEP <b>BIOINFO</b></h1>
+    <p class="lead">From protein folds to microbial genomes and evolutionary networks — structural and comparative bioinformatics at the University of São Paulo.</p>
+    <div class="cta">
+      <a class="pill primary" href="viewers/protein.html">Open the 3D viewer</a>
+      <a class="pill ghost" href="https://github.com/leepusp">GitHub organization</a>
+      <a class="pill ghost" href="https://leep.icb.usp.br/">Institutional website</a>
     </div>
-  </header>
+  </div>
+  <div class="plevel" id="plevel" aria-hidden="true"></div>
+  <div class="switch" id="switch">
+    <span class="lbl">view</span>
+    <button data-s="0" class="on">Structure</button>
+    <button data-s="1">Genome</button>
+    <button data-s="2">Network</button>
+    <button data-s="3">Phylogeny</button>
+  </div>
+</section>
 
-  <main>
-    <section>
-      <h2>Research focus</h2>
+<section class="story">
+  <div class="beat">
+    <div class="tag reveal">From sequence…</div>
+    <h2 class="reveal d1">A protein begins as a <b>string of letters</b>.</h2>
+    <p class="reveal d2">Twenty amino acids, written in one dimension — the raw text of life.</p>
+  </div>
+  <div class="beat">
+    <div class="tag reveal">…to structure</div>
+    <h2 class="reveal d1">That string folds into a precise <b>three-dimensional shape</b>.</h2>
+    <p class="reveal d2">We predict, evaluate and compare these folds to understand how form arises from sequence.</p>
+  </div>
+  <div class="beat">
+    <div class="tag reveal">Across genomes</div>
+    <h2 class="reveal d1">Thousands of these molecules are <b>encoded in microbial genomes</b>.</h2>
+    <p class="reveal d2">Comparative genomics maps secretion systems, mobile elements and bacterial protein machinery.</p>
+  </div>
+  <div class="beat">
+    <div class="tag reveal">Evolution rewrites it</div>
+    <h2 class="reveal d1">Across billions of years, mutation and selection <b>reshape these systems</b>.</h2>
+    <p class="reveal d2">We trace where innovation happens — across families, networks and deep time.</p>
+    <div class="seqline reveal d3" id="seqline" aria-hidden="true"></div>
+  </div>
+  <div class="beat" style="align-items:center; text-align:center">
+    <h2 class="reveal" style="max-width:680px">We build the <b>computational tools</b> to read these stories at genome scale.</h2>
+    <p class="reveal d1" style="margin:18px auto 0">Open code, datasets, tutorials and reproducible, HPC-ready workflows.</p>
+    <div class="cta reveal d2">
+      <a class="pill primary" href="viewers/protein.html">Open the 3D viewer</a>
+      <a class="pill ghost" href="https://github.com/leepusp">Browse the code</a>
+    </div>
+  </div>
+</section>
 
-      <div class="cards">
-        <article>
-          <h3>Protein structure and evolution</h3>
-          <p>
-            Analysis of protein families, domains, folds, structural models
-            and evolutionary innovation across biological systems.
-          </p>
-        </article>
+<section class="repos-sec">
+  <div class="wrap">
+    <h2 class="sec-title">Repositories</h2>
+    <p class="sec-sub">Open code and data maintained by the group.</p>
+    <ul class="repos">
+      <li><a href="https://github.com/leepusp/rotifer">rotifer</a></li>
+      <li><a href="https://github.com/leepusp/rotifer_data">rotifer_data</a></li>
+      <li><a href="https://github.com/leepusp/rotifertut2025.1">rotifertut2025.1</a></li>
+      <li><a href="https://github.com/leepusp/biobank">biobank</a></li>
+    </ul>
+  </div>
+</section>
 
-        <article>
-          <h3>Microbial comparative genomics</h3>
-          <p>
-            Genome-scale analysis of bacteria, mobile elements, secretion systems
-            and molecular adaptation.
-          </p>
-        </article>
+<footer>
+  <b>Laboratory of Structure and Evolution of Proteins — Bioinformatics</b><br>
+  Institute of Biomedical Sciences, University of São Paulo
+</footer>
 
-        <article>
-          <h3>Reproducible bioinformatics</h3>
-          <p>
-            Development of command-line tools, workflows, databases and HPC-ready
-            pipelines for biological data analysis.
-          </p>
-        </article>
-      </div>
-    </section>
+<script>
+(function(){
+  var canvas=document.getElementById("scene"); if(!canvas) return;
+  var ctx=canvas.getContext("2d");
+  var reduce=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  var W,H,DPR, tilt=-0.5, ang=0;
 
-    <section>
-      <h2>Interactive resources</h2>
+  function cross(a,b){return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];}
+  function nrm(a){var l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];}
+  function addS(p,v,s){return [p[0]+v[0]*s,p[1]+v[1]*s,p[2]+v[2]*s];}
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+  function col(hue,sat,light,alpha){return "hsla("+hue+","+sat+"%,"+light+"%,"+alpha+")";}
 
-      <div class="cards">
-        <article>
-          <h3>3D protein viewer</h3>
-          <p>Explore protein structures and structural models interactively.</p>
-          <a href="viewers/protein.html">Open viewer</a>
-        </article>
+  function resize(){DPR=Math.min(window.devicePixelRatio||1,2); W=canvas.clientWidth; H=canvas.clientHeight;
+    canvas.width=W*DPR; canvas.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);}
+  window.addEventListener("resize",resize); resize();
 
-        <article>
-          <h3>Genome browser</h3>
-          <p>Inspect microbial loci, annotations and comparative genomics tracks.</p>
-          <span>Coming soon</span>
-        </article>
+  function project(p,a){
+    var ca=Math.cos(a),sa=Math.sin(a),ct=Math.cos(tilt),st=Math.sin(tilt);
+    var x=p[0]*ca - p[2]*sa, z=p[0]*sa + p[2]*ca, y=p[1];
+    var y2=y*ct - z*st, z2=y*st + z*ct;
+    var fov=3.4, sc=fov/(fov - z2), R=Math.min(W,H)*0.36;
+    return {x:W/2 + x*R*sc, y:H/2 + y2*R*sc, z:z2, sc:sc};
+  }
+  function depth(z){return Math.max(0,Math.min(1,(z+1.25)/2.5));}
 
-        <article>
-          <h3>Phylogeny and alignments</h3>
-          <p>Visualize trees, conserved motifs and protein family relationships.</p>
-          <span>Coming soon</span>
-        </article>
-      </div>
-    </section>
+  function buildProtein(){
+    var hLens=[16,15,17,14,16,15], loopLen=4, turn=2*Math.PI/3.6;
+    var ss=[]; hLens.forEach(function(L,hi){ for(var k=0;k<L;k++) ss.push("H"); if(hi<hLens.length-1) for(var k2=0;k2<loopLen;k2++) ss.push("L"); });
+    var n=ss.length;
+    function vc(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+    function vn(a){var l=Math.hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];}
+    function frameOf(axis){var ax=vn(axis),ref=Math.abs(ax[1])>0.9?[1,0,0]:[0,1,0],u=vn(vc(ax,ref)),v=vn(vc(ax,u));return [u,v,ax];}
+    function normPS(P,S){var c=[0,0,0];P.forEach(function(p){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];});c=[c[0]/P.length,c[1]/P.length,c[2]/P.length];
+      var m=0;P.forEach(function(p){var d=Math.hypot(p[0]-c[0],p[1]-c[1],p[2]-c[2]);if(d>m)m=d;});
+      return {P:P.map(function(p){return [(p[0]-c[0])/m,(p[1]-c[1])/m,(p[2]-c[2])/m];}), S:S};}
+    function helixAt(center,axis,L,hr,rise,P,S){var f=frameOf(axis),u=f[0],v=f[1],ax=f[2];
+      for(var k=0;k<L;k++){var th=k*turn, off=k*rise-(L-1)*rise/2,
+        ap=[center[0]+ax[0]*off,center[1]+ax[1]*off,center[2]+ax[2]*off],
+        rad=[u[0]*Math.cos(th)*hr+v[0]*Math.sin(th)*hr, u[1]*Math.cos(th)*hr+v[1]*Math.sin(th)*hr, u[2]*Math.cos(th)*hr+v[2]*Math.sin(th)*hr];
+        P.push([ap[0]+rad[0],ap[1]+rad[1],ap[2]+rad[2]]); S.push(vn(rad));}}
+    function linear(struct){var P=[],S=[],x=0,hr=struct?1.6:0;
+      hLens.forEach(function(L,hi){
+        for(var k=0;k<L;k++){var th=k*turn; P.push([x,hr*Math.cos(th),hr*Math.sin(th)]); S.push([0,Math.cos(th),Math.sin(th)]); x+=1.5;}
+        if(hi<hLens.length-1) for(var k2=0;k2<loopLen;k2++){P.push([x,0,0]); S.push([0,1,0]); x+=2.2;}});
+      return normPS(P,S);}
+    function tertiary(){
+      var cen=[[-3,2.4,0.6],[3,2,1.4],[3.2,-2,-1],[-3,-2.2,1.1],[0.4,0.3,3.2],[0,-0.3,-3.2]];
+      var axs=[[0.15,1,0.35],[0.1,1,-0.3],[-0.1,1,0.2],[0.05,1,-0.35],[1,0.15,0.25],[1,-0.1,-0.3]];
+      var P=[],S=[];
+      for(var hi=0;hi<hLens.length;hi++){
+        var tP=[],tS=[]; helixAt(cen[hi],axs[hi],hLens[hi],2.3,1.5,tP,tS);
+        if(P.length){var a0=P[P.length-1],a1=tP[0];
+          for(var k=0;k<loopLen;k++){var t=(k+1)/(loopLen+1);
+            P.push([a0[0]+(a1[0]-a0[0])*t,a0[1]+(a1[1]-a0[1])*t,a0[2]+(a1[2]-a0[2])*t+Math.sin(t*Math.PI)*1.2]); S.push([0,1,0]);}}
+        for(var q=0;q<tP.length;q++){P.push(tP[q]); S.push(tS[q]);}}
+      return normPS(P,S);}
+    return {M:4, ss:ss, n:n, L:[linear(false), linear(true), tertiary()]};
+  }
+  var PROT=buildProtein();
+  var pT=0, plevel=document.getElementById("plevel");
+  var LV=["Primary structure","Secondary structure","Tertiary structure","Quaternary structure"];
+  function ease(u){return u<0.5?2*u*u:1-Math.pow(-2*u+2,2)/2;}
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function drawProtein(geom,a,vis){
+    var G=PROT, n=G.n, ss=G.ss;
+    pT+=0.0050; if(pT>=4) pT-=4;
+    var k=Math.floor(pT), u=pT-k, hold=0.36, m=u<hold?0:ease((u-hold)/(1-hold));
+    var cfgL=[G.L[0],G.L[1],G.L[2],G.L[2],G.L[0]], cfgS=[0,0,0,1,0], cfgW=[0.32,1,1,1,0.32];
+    var spread=lerp(cfgS[k],cfgS[k+1],m), wsc=lerp(cfgW[k],cfgW[k+1],m), A=cfgL[k], B=cfgL[k+1];
+    var scl=1-0.42*spread, M=spread>0.01?G.M:1;
+    if(plevel){plevel.textContent=LV[(m<0.5?k:k+1)%4]; plevel.style.opacity=vis;}
+    var prims=[];
+    for(var s=0;s<M;s++){
+      var sa=s/G.M*2*Math.PI, ox=Math.cos(sa)*0.92*spread, oy=Math.sin(sa)*0.92*spread, rz=(s*1.3)*spread, cz=Math.cos(rz),sz=Math.sin(rz),
+          hue=(s%2===0)?214:142, cp=[],lp=[],rp=[];
+      for(var i=0;i<n;i++){
+        var px=lerp(A.P[i][0],B.P[i][0],m)*scl, py=lerp(A.P[i][1],B.P[i][1],m)*scl, pz=lerp(A.P[i][2],B.P[i][2],m)*scl;
+        var sx=lerp(A.S[i][0],B.S[i][0],m), sy=lerp(A.S[i][1],B.S[i][1],m), szz=lerp(A.S[i][2],B.S[i][2],m), sl=Math.hypot(sx,sy,szz)||1; sx/=sl;sy/=sl;szz/=sl;
+        var wx=px*cz-py*sz+ox, wy=px*sz+py*cz+oy, wz=pz;
+        var dx=sx*cz-sy*sz, dy=sx*sz+sy*cz, dz=szz;
+        var w=(ss[i]==="H"?0.092:0.032)*wsc;
+        cp.push(project([wx,wy,wz],a));
+        lp.push(project([wx+dx*w,wy+dy*w,wz+dz*w],a));
+        rp.push(project([wx-dx*w,wy-dy*w,wz-dz*w],a));
+      }
+      for(var i2=0;i2<n-1;i2++){
+        if(ss[i2]==="H"&&ss[i2+1]==="H") prims.push({q:1,A:lp[i2],B:rp[i2],C:rp[i2+1],D:lp[i2+1],La:lp[i2],Lb:lp[i2+1],z:(cp[i2].z+cp[i2+1].z)/2,hue:hue,sc:cp[i2].sc});
+        else prims.push({q:0,A:cp[i2],B:cp[i2+1],z:(cp[i2].z+cp[i2+1].z)/2,hue:hue,sc:cp[i2].sc});
+      }
+    }
+    prims.sort(function(x,y){return x.z-y.z;}); ctx.lineCap="round"; ctx.lineJoin="round";
+    prims.forEach(function(o){var d=depth(o.z);
+      if(o.q===1){
+        ctx.fillStyle=col(o.hue,52,26+34*d,(0.5+0.5*d)*vis);
+        ctx.beginPath(); ctx.moveTo(o.A.x,o.A.y); ctx.lineTo(o.B.x,o.B.y); ctx.lineTo(o.C.x,o.C.y); ctx.lineTo(o.D.x,o.D.y); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle=col(o.hue,60,64+22*d,(0.4+0.5*d)*vis); ctx.lineWidth=1.1;
+        ctx.beginPath(); ctx.moveTo(o.La.x,o.La.y); ctx.lineTo(o.Lb.x,o.Lb.y); ctx.stroke();
+      } else {
+        ctx.strokeStyle=col(o.hue,40,52+26*d,(0.5+0.5*d)*vis); ctx.lineWidth=(1.6+2.6*d)*(o.sc*0.5+0.5);
+        ctx.beginPath(); ctx.moveTo(o.A.x,o.A.y); ctx.lineTo(o.B.x,o.B.y); ctx.stroke();
+      }
+    });
+  }
 
-    <section>
-      <h2>Repositories</h2>
+  function buildGenome(){
+    var T=210, R=0.8, minor=0.14, turns=26, s1=[], s2=[], rungs=[];
+    for(var i=0;i<=T;i++){var phi=i/T*2*Math.PI, c=[Math.cos(phi)*R, Math.sin(phi)*R, 0], rad=[Math.cos(phi),Math.sin(phi),0], psi=phi*turns;
+      var p1=[c[0]+minor*Math.cos(psi)*rad[0], c[1]+minor*Math.cos(psi)*rad[1], c[2]+minor*Math.sin(psi)];
+      var p2=[c[0]+minor*Math.cos(psi+Math.PI)*rad[0], c[1]+minor*Math.cos(psi+Math.PI)*rad[1], c[2]+minor*Math.sin(psi+Math.PI)];
+      s1.push(p1); s2.push(p2); if(i%2===0 && i<T) rungs.push([p1,p2,(i%4===0)?45:198]);}
+    return {s1:s1, s2:s2, rungs:rungs};
+  }
+  function drawGenome(G,a,vis){
+    ctx.lineCap="round";
+    var P1=G.s1.map(function(p){return project(p,a);}), P2=G.s2.map(function(p){return project(p,a);});
+    var prims=[];
+    for(var i=0;i<P1.length-1;i++){ prims.push({k:1,A:P1[i],B:P1[i+1],z:(P1[i].z+P1[i+1].z)/2,h:205});
+      prims.push({k:1,A:P2[i],B:P2[i+1],z:(P2[i].z+P2[i+1].z)/2,h:176}); }
+    G.rungs.forEach(function(rg){var A=project(rg[0],a),B=project(rg[1],a); prims.push({k:2,A:A,B:B,z:(A.z+B.z)/2,h:rg[2]});});
+    prims.sort(function(x,y){return x.z-y.z;});
+    prims.forEach(function(o){var d=depth(o.z);
+      if(o.k===1){ ctx.strokeStyle=col(o.h,60,40+30*d,(0.34+0.6*d)*vis); ctx.lineWidth=(1.5+3*d); }
+      else { ctx.strokeStyle=col(o.h,65,48+22*d,(0.2+0.5*d)*vis); ctx.lineWidth=(0.9+1.7*d); }
+      ctx.beginPath(); ctx.moveTo(o.A.x,o.A.y); ctx.lineTo(o.B.x,o.B.y); ctx.stroke();});
+  }
 
-      <ul>
-        <li><a href="https://github.com/leepusp/rotifer">rotifer</a></li>
-        <li><a href="https://github.com/leepusp/rotifer_data">rotifer_data</a></li>
-        <li><a href="https://github.com/leepusp/rotifertut2025.1">rotifertut2025.1</a></li>
-        <li><a href="https://github.com/leepusp/biobank">biobank</a></li>
-      </ul>
-    </section>
-  </main>
+  function buildNetwork(){
+    var rng=mulberry32(7), K=44, nodes=[];
+    for(var i=0;i<K;i++){var u=rng()*2-1, th=rng()*2*Math.PI, r=Math.cbrt(rng())*0.95, s=Math.sqrt(1-u*u);
+      nodes.push([s*Math.cos(th)*r, s*Math.sin(th)*r, u*r]);}
+    var edges=[];
+    for(var i2=0;i2<K;i2++){var ds=[]; for(var j=0;j<K;j++){ if(j!==i2){var d=Math.hypot(nodes[i2][0]-nodes[j][0],nodes[i2][1]-nodes[j][1],nodes[i2][2]-nodes[j][2]); ds.push([d,j]);}}
+      ds.sort(function(x,y){return x[0]-y[0];});
+      for(var n=0;n<2;n++){var jj=ds[n][1],key=i2<jj?i2+"-"+jj:jj+"-"+i2; if(!edges.some(function(e){return e.key===key;})) edges.push({a:i2,b:jj,key:key});}}
+    var pulses=[]; for(var p=0;p<8;p++) pulses.push({e:Math.floor(rng()*edges.length), t:rng(), sp:0.004+rng()*0.006});
+    return {nodes:nodes, edges:edges, pulses:pulses};
+  }
+  function drawNetwork(N,a,vis){
+    var pr=N.nodes.map(function(p){return project(p,a);});
+    var es=N.edges.map(function(e){return {e:e, z:(pr[e.a].z+pr[e.b].z)/2};}); es.sort(function(x,y){return x.z-y.z;});
+    es.forEach(function(o){var A=pr[o.e.a],B=pr[o.e.b],d=depth(o.z);
+      ctx.strokeStyle=col(200,55,40+26*d,(0.12+0.38*d)*vis); ctx.lineWidth=(0.6+1.2*d);
+      ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();});
+    var ns=pr.map(function(q,i){return {q:q,i:i,z:q.z};}); ns.sort(function(x,y){return x.z-y.z;});
+    ns.forEach(function(o){var d=depth(o.z); ctx.fillStyle=col(202,70,48+24*d,(0.5+0.5*d)*vis);
+      ctx.beginPath(); ctx.arc(o.q.x,o.q.y,(1.4+2.6*d)*o.q.sc,0,6.283); ctx.fill();});
+    N.pulses.forEach(function(pl){var e=N.edges[pl.e],A=N.nodes[e.a],B=N.nodes[e.b];
+      var p=[A[0]+(B[0]-A[0])*pl.t, A[1]+(B[1]-A[1])*pl.t, A[2]+(B[2]-A[2])*pl.t], q=project(p,a),d=depth(q.z);
+      ctx.fillStyle=col(190,95,68,(0.55+0.45*d)*vis); ctx.beginPath(); ctx.arc(q.x,q.y,(1.6+2*d)*q.sc,0,6.283); ctx.fill();
+      pl.t+=pl.sp; if(pl.t>1){pl.t=0; pl.e=Math.floor(Math.random()*N.edges.length);}});
+  }
 
-  <footer>
-    <p>
-      Laboratory of Structure and Evolution of Proteins – Bioinformatics |
-      Institute of Biomedical Sciences, University of São Paulo
-    </p>
-  </footer>
+  function buildPhylo(){
+    var rng=mulberry32(5), nodes=[], edges=[], maxR=0;
+    function rec(angle, span, radius, dep){
+      var idx=nodes.length, nd=[Math.cos(angle)*radius, Math.sin(angle)*radius, 0, radius]; nodes.push(nd);
+      if(radius>maxR)maxR=radius;
+      if(dep>=4 || (dep>=2 && rng()<0.22)){ nd.leaf=true; return idx; }
+      for(var c=0;c<2;c++){
+        var childAngle=angle - span/4 + c*span/2, bl=(0.18+rng()*0.16)*(0.8+rng()*0.5);
+        var ci=rec(childAngle, span*0.46, radius+bl, dep+1); edges.push([idx,ci]);
+      }
+      return idx;
+    }
+    rec(-Math.PI/2, Math.PI*1.7, 0, 0);
+    var sc=0.95/(maxR||1); nodes.forEach(function(nd){nd[0]*=sc; nd[1]*=sc; nd[3]*=sc;});
+    return {nodes:nodes, edges:edges, maxR:0.95};
+  }
+  var phyloGrow=0;
+  function drawPhylo(P,a,vis){
+    if(phyloGrow<1.3) phyloGrow+=0.02;
+    var pr=P.nodes.map(function(p){return project(p,a);});
+    ctx.lineCap="round";
+    P.edges.forEach(function(e){
+      var A=pr[e[0]],B=pr[e[1]], rP=P.nodes[e[0]][3]/P.maxR;
+      var rev=Math.max(0,Math.min(1,(phyloGrow - rP)/0.2)); if(rev<=0) return;
+      var d=depth((A.z+B.z)/2), bx=A.x+(B.x-A.x)*rev, by=A.y+(B.y-A.y)*rev;
+      ctx.strokeStyle=col(205-34*rP,58,40+28*d,(0.38+0.55*d)*vis); ctx.lineWidth=(1+2.2*d);
+      ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(bx,by); ctx.stroke();
+    });
+    P.nodes.forEach(function(nd,i){ if(!nd.leaf) return; var rN=nd[3]/P.maxR; if(phyloGrow<rN+0.03) return;
+      var q=pr[i],d=depth(q.z); ctx.fillStyle=col(178,80,60+18*d,vis);
+      ctx.beginPath(); ctx.arc(q.x,q.y,(1.6+1.8*d)*q.sc,0,6.283); ctx.fill();});
+  }
+
+  var GEO=[PROT, buildGenome(), buildNetwork(), buildPhylo()];
+  var DRAW=[drawProtein, drawGenome, drawNetwork, drawPhylo];
+  var mode=0, target=0, vis=1, phase=0;
+
+  function go(t){ if(t===mode && phase===0){return;} target=t; phase=-1;
+    Array.prototype.forEach.call(document.querySelectorAll("#switch button"),function(b){b.classList.toggle("on", +b.dataset.s===t);});}
+  document.querySelectorAll("#switch button").forEach(function(b){b.addEventListener("click",function(){go(+b.dataset.s); resetTimer();});});
+
+  var running=true;
+  function step(){
+    if(!running) return;
+    ctx.clearRect(0,0,W,H);
+    if(phase===-1){ vis-=0.045; if(vis<=0){vis=0; mode=target; phase=1; if(mode===3) phyloGrow=0; if(mode===0) pT=0;} }
+    else if(phase===1){ vis+=0.045; if(vis>=1){vis=1; phase=0;} }
+    DRAW[mode](GEO[mode], ang, vis);
+    if(mode!==0 && plevel) plevel.style.opacity=0;
+    ang+=0.0030;
+    requestAnimationFrame(step);
+  }
+
+  var timer=null;
+  function resetTimer(){ if(reduce) return; if(timer) clearInterval(timer);
+    timer=setInterval(function(){ go((mode+1)%4); }, 12000); }
+
+  if(reduce){ DRAW[mode](GEO[mode], ang, 1); }
+  else{
+    requestAnimationFrame(step); resetTimer();
+    var io=new IntersectionObserver(function(e){ var on=e[0].isIntersecting;
+      if(on && !running){running=true; requestAnimationFrame(step);} running=on; },{threshold:0.02});
+    io.observe(canvas);
+    document.addEventListener("visibilitychange",function(){ if(document.hidden){running=false;} else {running=true; requestAnimationFrame(step);} });
+  }
+})();
+
+(function(){
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){ if(e.isIntersecting){e.target.classList.add("in"); io.unobserve(e.target);} });},{threshold:0.25});
+  document.querySelectorAll(".reveal").forEach(function(el){io.observe(el);});
+})();
+
+(function(){
+  var host=document.getElementById("seqline"); if(!host) return;
+  var aa="ACDEFGHIKLMNPQRSTVWY", N=58;
+  function rnd(){return aa[Math.floor(Math.random()*aa.length)];}
+  for(var i=0;i<N;i++){var s=document.createElement("span"); s.textContent=rnd(); host.appendChild(s);}
+  if(window.matchMedia("(prefers-reduced-motion:reduce)").matches) return;
+  setInterval(function(){var k=Math.floor(Math.random()*N), sp=host.children[k]; sp.textContent=rnd(); sp.classList.add("mut");
+    setTimeout(function(){sp.classList.remove("mut");},700);},520);
+})();
+</script>
 </body>
 </html>
