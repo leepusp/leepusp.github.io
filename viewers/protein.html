@@ -1,89 +1,361 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>LEEP BIOINFO Protein Viewer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>3D Protein Viewer · LEEP BIOINFO</title>
+<meta name="description" content="Interactive 3D protein structure viewer — LEEP BIOINFO, University of São Paulo." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ngl@2.3.1/dist/ngl.js"></script>
+<style>
+  :root{
+    --bg:#0a1422; --panel:#0f1c30; --panel-2:#13243c; --line:#1f3252;
+    --text:#e6edf6; --muted:#8195b0; --accent:#3b82f6; --accent-2:#60a5fa;
+    --good:#34d399; --bad:#f87171;
+    --ui:"Space Grotesk", system-ui, sans-serif;
+    --mono:"IBM Plex Mono", ui-monospace, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:var(--ui); -webkit-font-smoothing:antialiased;
+    display:grid; grid-template-rows:auto 1fr; height:100dvh; overflow:hidden;
+  }
 
-  <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+  /* ---- top bar ---- */
+  header{
+    display:flex; align-items:center; gap:18px;
+    padding:12px 20px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#0d1b2e,#0a1422);
+  }
+  .brand{display:flex; align-items:baseline; gap:10px; font-weight:700; letter-spacing:.04em}
+  .brand b{color:var(--accent-2)}
+  .brand span{font-size:.72rem; font-weight:500; color:var(--muted); letter-spacing:.08em; text-transform:uppercase}
+  header .spacer{flex:1}
+  .back{
+    color:var(--muted); text-decoration:none; font-size:.82rem;
+    border:1px solid var(--line); padding:7px 13px; border-radius:8px;
+    transition:.15s;
+  }
+  .back:hover{color:var(--text); border-color:var(--accent); background:#10233c}
 
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f7f9fb;
-      color: #1f2933;
-    }
+  /* ---- layout ---- */
+  main{display:grid; grid-template-columns:320px 1fr; min-height:0}
+  .rail{
+    background:var(--panel); border-right:1px solid var(--line);
+    padding:18px; overflow-y:auto; display:flex; flex-direction:column; gap:22px;
+  }
+  .stage-wrap{position:relative; min-width:0; min-height:0; background:radial-gradient(120% 120% at 50% 0%, #0e1f36 0%, #070f1c 70%)}
+  #viewport{width:100%; height:100%}
 
-    header {
-      background: #0f172a;
-      color: white;
-      padding: 28px;
-    }
+  .group h2{
+    font-size:.7rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 11px; font-weight:600;
+  }
 
-    main {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 24px;
-    }
+  /* PDB input */
+  .pdb-row{display:flex; gap:8px}
+  .pdb-row input{
+    flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--line);
+    color:var(--text); font-family:var(--mono); font-size:.95rem; letter-spacing:.06em;
+    padding:9px 11px; border-radius:8px; text-transform:uppercase;
+  }
+  .pdb-row input:focus{outline:none; border-color:var(--accent)}
+  .pdb-row input::placeholder{color:#46597a; letter-spacing:.04em}
+  .btn{
+    border:0; cursor:pointer; font-family:var(--ui); font-weight:600;
+    background:var(--accent); color:#fff; padding:9px 14px; border-radius:8px;
+    font-size:.85rem; transition:.15s;
+  }
+  .btn:hover{background:#2f6fe0}
+  .btn.block{width:100%; margin-top:8px}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--muted)}
+  .btn.ghost:hover{color:var(--text); border-color:var(--accent)}
 
-    #viewer {
-      width: 100%;
-      height: 640px;
-      position: relative;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 1px solid #d1d5db;
-      background: white;
-    }
+  .upload{
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    margin-top:8px; font-size:.78rem; color:var(--muted); cursor:pointer;
+    border:1px dashed var(--line); border-radius:8px; padding:8px; transition:.15s;
+  }
+  .upload:hover{border-color:var(--accent); color:var(--text)}
+  .upload input{display:none}
 
-    .note {
-      margin-top: 20px;
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 18px;
-    }
+  /* examples */
+  .examples{display:flex; flex-direction:column; gap:7px}
+  .ex{
+    text-align:left; background:var(--panel-2); border:1px solid var(--line);
+    border-radius:8px; padding:9px 11px; cursor:pointer; color:var(--text);
+    font-family:var(--ui); transition:.15s; display:flex; align-items:baseline; gap:9px;
+  }
+  .ex:hover{border-color:var(--accent); background:#16294230}
+  .ex code{font-family:var(--mono); color:var(--accent-2); font-size:.8rem}
+  .ex small{color:var(--muted); font-size:.74rem}
 
-    a {
-      color: #2563eb;
-    }
-  </style>
+  /* selects / chips */
+  .chips{display:flex; flex-wrap:wrap; gap:6px}
+  .chip{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    border-radius:7px; padding:6px 10px; font-size:.78rem; cursor:pointer;
+    font-family:var(--ui); transition:.12s;
+  }
+  .chip:hover{color:var(--text)}
+  .chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
+
+  .toggles{display:flex; gap:8px}
+  .toggles .btn.ghost{flex:1}
+
+  /* data readout */
+  .readout{
+    font-family:var(--mono); font-size:.8rem; background:#081222;
+    border:1px solid var(--line); border-radius:10px; padding:13px 14px;
+    line-height:1.85;
+  }
+  .readout .ttl{color:var(--accent-2); font-weight:500; word-break:break-word; margin-bottom:6px}
+  .readout .kv{display:flex; justify-content:space-between; color:var(--muted)}
+  .readout .kv b{color:var(--text); font-weight:500}
+  .readout .status{margin-top:8px; font-size:.74rem}
+  .status.load{color:var(--accent-2)} .status.ok{color:var(--good)} .status.err{color:var(--bad)}
+
+  /* loading overlay */
+  .overlay{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; background:#070f1ccc; backdrop-filter:blur(2px);
+    color:var(--muted); font-family:var(--mono); font-size:.82rem; z-index:5;
+  }
+  .overlay.show{display:flex}
+  .spin{
+    width:34px; height:34px; border:3px solid var(--line);
+    border-top-color:var(--accent); border-radius:50%; animation:r .8s linear infinite;
+  }
+  @keyframes r{to{transform:rotate(360deg)}}
+
+  footer{font-size:.7rem; color:#54678a; line-height:1.5; padding-top:4px}
+
+  /* responsive */
+  @media (max-width:760px){
+    body{grid-template-rows:auto auto 1fr}
+    main{grid-template-columns:1fr; grid-template-rows:1fr; display:contents}
+    .stage-wrap{order:2; height:48dvh}
+    .rail{order:3; border-right:0; border-top:1px solid var(--line); max-height:none; overflow:visible}
+    header{flex-wrap:wrap}
+  }
+  @media (prefers-reduced-motion:reduce){ .spin{animation:none} }
+</style>
 </head>
-
 <body>
-  <header>
-    <h1>LEEP BIOINFO — Protein Structure Viewer</h1>
-    <p>Interactive 3D visualization of protein structures and structural models.</p>
-  </header>
 
-  <main>
-    <div id="viewer"></div>
+<header>
+  <div class="brand">LEEP <b>BIOINFO</b> <span>3D Protein Viewer</span></div>
+  <div class="spacer"></div>
+  <a class="back" href="../index.html">← Portal</a>
+</header>
 
-    <div class="note">
-      <h2>Example protein structure</h2>
-      <p>
-        This page displays an example protein structure using 3Dmol.js.
-        The viewer can later be adapted to load PDB or mmCIF files from LEEP BIOINFO workflows.
-      </p>
+<main>
+  <!-- control rail -->
+  <aside class="rail">
 
-      <p>
-        <a href="../index.html">Back to portal</a>
-      </p>
+    <div class="group">
+      <h2>Load structure</h2>
+      <div class="pdb-row">
+        <input id="pdbInput" placeholder="PDB ID — e.g. 1UBQ" maxlength="8" autocomplete="off" />
+        <button class="btn" id="loadBtn">Load</button>
+      </div>
+      <label class="upload">
+        <input type="file" id="fileInput" accept=".pdb,.cif,.ent,.mmcif,.pdb1" />
+        ⤓ or upload a local .pdb / .cif file
+      </label>
     </div>
-  </main>
 
-  <script>
-    const element = document.getElementById("viewer");
-    const config = { backgroundColor: "white" };
-    const viewer = $3Dmol.createViewer(element, config);
+    <div class="group">
+      <h2>Examples from our work</h2>
+      <div class="examples" id="examples"></div>
+    </div>
 
-    $3Dmol.download("pdb:1CRN", viewer, {}, function() {
-      viewer.setStyle({}, { cartoon: { color: "spectrum" } });
-      viewer.zoomTo();
-      viewer.render();
-      viewer.spin(true);
+    <div class="group">
+      <h2>Representation</h2>
+      <div class="chips" id="reprChips"></div>
+    </div>
+
+    <div class="group">
+      <h2>Color by</h2>
+      <div class="chips" id="colorChips"></div>
+    </div>
+
+    <div class="group">
+      <h2>View</h2>
+      <div class="toggles">
+        <button class="btn ghost" id="spinBtn">⟳ Spin</button>
+        <button class="btn ghost" id="centerBtn">⊙ Recenter</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Structure</h2>
+      <div class="readout" id="readout">
+        <div class="ttl">No structure loaded</div>
+        <div class="kv"><span>chains</span><b>—</b></div>
+        <div class="kv"><span>residues</span><b>—</b></div>
+        <div class="kv"><span>atoms</span><b>—</b></div>
+        <div class="status" id="status">Pick an example or enter a PDB ID.</div>
+      </div>
+    </div>
+
+    <footer>
+      Structures fetched live from the RCSB Protein Data Bank.<br>
+      Rendering by NGL Viewer · LEEP BIOINFO, ICB-USP.
+    </footer>
+  </aside>
+
+  <!-- 3D canvas -->
+  <section class="stage-wrap">
+    <div id="viewport"></div>
+    <div class="overlay" id="overlay"><div class="spin"></div><span id="ovTxt">Loading…</span></div>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  // curated examples tied to LEEP research themes
+  var EXAMPLES = [
+    {id:"1UBQ", note:"Ubiquitin — protein family evolution"},
+    {id:"1LYZ", note:"Lysozyme — classic fold reference"},
+    {id:"4HHB", note:"Hemoglobin — multi-chain assembly"},
+    {id:"1EMA", note:"GFP — β-barrel architecture"},
+    {id:"6LU7", note:"SARS-CoV-2 Mpro — viral protease"}
+  ];
+  var REPRS  = ["cartoon","surface","ball+stick","spacefill","backbone","licorice"];
+  var COLORS = [
+    {k:"chainname",   label:"chain"},
+    {k:"sstruc",      label:"sec. structure"},
+    {k:"bfactor",     label:"B-factor"},
+    {k:"element",     label:"element"},
+    {k:"residueindex",label:"position"},
+    {k:"hydrophobicity",label:"hydrophob."}
+  ];
+
+  var state = {repr:"cartoon", color:"chainname", spinning:false};
+  var comp = null;
+
+  // --- NGL stage ---
+  var stage = new NGL.Stage("viewport", {backgroundColor:"#070f1c"});
+  window.addEventListener("resize", function(){ stage.handleResize(); });
+
+  // --- DOM ---
+  var $ = function(id){ return document.getElementById(id); };
+  var overlay=$("overlay"), ovTxt=$("ovTxt"), statusEl=$("status"), readout=$("readout");
+
+  function setStatus(msg, cls){ statusEl.textContent = msg; statusEl.className = "status " + (cls||""); }
+  function showOverlay(t){ ovTxt.textContent=t||"Loading…"; overlay.classList.add("show"); }
+  function hideOverlay(){ overlay.classList.remove("show"); }
+
+  // build chip rows
+  function buildChips(host, items, getKey, getLabel, current, onPick){
+    host.innerHTML="";
+    items.forEach(function(it){
+      var key=getKey(it);
+      var b=document.createElement("button");
+      b.className="chip"+(key===current?" on":"");
+      b.textContent=getLabel(it);
+      b.onclick=function(){
+        host.querySelectorAll(".chip").forEach(function(c){c.classList.remove("on");});
+        b.classList.add("on");
+        onPick(key);
+      };
+      host.appendChild(b);
     });
-  </script>
+  }
+  buildChips($("reprChips"),  REPRS,  function(r){return r;}, function(r){return r;}, state.repr,
+    function(k){ state.repr=k; applyRepr(); });
+  buildChips($("colorChips"), COLORS, function(c){return c.k;}, function(c){return c.label;}, state.color,
+    function(k){ state.color=k; applyRepr(); });
+
+  // examples
+  var exHost=$("examples");
+  EXAMPLES.forEach(function(e){
+    var b=document.createElement("button"); b.className="ex";
+    b.innerHTML='<code>'+e.id+'</code><small>'+e.note+'</small>';
+    b.onclick=function(){ $("pdbInput").value=e.id; loadPdb(e.id); };
+    exHost.appendChild(b);
+  });
+
+  // (re)apply representation + coloring to the loaded component
+  function applyRepr(){
+    if(!comp) return;
+    comp.removeAllRepresentations();
+    var p={colorScheme:state.color};
+    if(state.repr==="surface"){ p.opacity=0.85; p.surfaceType="av"; }
+    comp.addRepresentation(state.repr, p);
+  }
+
+  function fillReadout(structure, title){
+    var name = title || structure.title || structure.name || "Structure";
+    var chains = structure.chainStore ? structure.chainStore.count : "—";
+    var resi   = structure.residueStore ? structure.residueStore.count : "—";
+    var atoms  = structure.atomCount != null ? structure.atomCount : "—";
+    readout.innerHTML =
+      '<div class="ttl">'+name+'</div>'+
+      '<div class="kv"><span>chains</span><b>'+chains+'</b></div>'+
+      '<div class="kv"><span>residues</span><b>'+resi+'</b></div>'+
+      '<div class="kv"><span>atoms</span><b>'+atoms+'</b></div>'+
+      '<div class="status ok" id="status">loaded ✓</div>';
+    statusEl=$("status");
+  }
+
+  function afterLoad(c, title){
+    comp=c;
+    applyRepr();
+    comp.autoView(600);
+    if(state.spinning) stage.setSpin(true);
+    fillReadout(c.structure, title);
+    hideOverlay();
+  }
+
+  function loadPdb(id){
+    id=(id||"").trim().toUpperCase();
+    if(!/^[0-9A-Z]{4}$/.test(id)){ setStatus("PDB IDs have 4 characters (e.g. 1UBQ).","err"); return; }
+    stage.removeAllComponents(); comp=null;
+    showOverlay("Fetching "+id+" from RCSB…");
+    setStatus("loading "+id+"…","load");
+    stage.loadFile("rcsb://"+id).then(function(c){
+      afterLoad(c, id);
+    }).catch(function(){
+      hideOverlay();
+      setStatus("Could not load "+id+". Check the ID exists in the PDB.","err");
+    });
+  }
+
+  function loadFile(file){
+    stage.removeAllComponents(); comp=null;
+    showOverlay("Reading "+file.name+"…");
+    setStatus("parsing local file…","load");
+    stage.loadFile(file).then(function(c){
+      afterLoad(c, file.name);
+    }).catch(function(){
+      hideOverlay();
+      setStatus("Could not parse that file. Use .pdb, .cif or .ent.","err");
+    });
+  }
+
+  // events
+  $("loadBtn").onclick=function(){ loadPdb($("pdbInput").value); };
+  $("pdbInput").addEventListener("keydown", function(e){ if(e.key==="Enter") loadPdb(this.value); });
+  $("fileInput").addEventListener("change", function(){ if(this.files[0]) loadFile(this.files[0]); });
+  $("spinBtn").onclick=function(){
+    state.spinning=!state.spinning; stage.setSpin(state.spinning);
+    this.classList.toggle("on", state.spinning);
+    this.style.color = state.spinning ? "#fff" : "";
+    this.style.borderColor = state.spinning ? "var(--accent)" : "";
+  };
+  $("centerBtn").onclick=function(){ if(comp) comp.autoView(500); };
+
+  // first structure on load
+  loadPdb("1UBQ");
+})();
+</script>
 </body>
 </html>
