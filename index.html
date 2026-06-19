@@ -105,7 +105,7 @@
   <div class="switch" id="switch">
     <span class="lbl">view</span>
     <button data-s="0" class="on">Structure</button>
-    <button data-s="1">Genome</button>
+    <button data-s="1">Genomics</button>
     <button data-s="2">Network</button>
     <button data-s="3">Phylogeny</button>
   </div>
@@ -224,66 +224,347 @@
   function ease(u){return u<0.5?2*u*u:1-Math.pow(-2*u+2,2)/2;}
   function lerp(a,b,t){return a+(b-a)*t;}
   function drawProtein(geom,a,vis){
-    var G=PROT, n=G.n, ss=G.ss;
-    pT+=0.0050; if(pT>=4) pT-=4;
-    var k=Math.floor(pT), u=pT-k, hold=0.36, m=u<hold?0:ease((u-hold)/(1-hold));
-    var cfgL=[G.L[0],G.L[1],G.L[2],G.L[2],G.L[0]], cfgS=[0,0,0,1,0], cfgW=[0.32,1,1,1,0.32];
-    var spread=lerp(cfgS[k],cfgS[k+1],m), wsc=lerp(cfgW[k],cfgW[k+1],m), A=cfgL[k], B=cfgL[k+1];
-    var scl=1-0.42*spread, M=spread>0.01?G.M:1;
-    if(plevel){plevel.textContent=LV[(m<0.5?k:k+1)%4]; plevel.style.opacity=vis;}
-    var prims=[];
-    for(var s=0;s<M;s++){
-      var sa=s/G.M*2*Math.PI, ox=Math.cos(sa)*0.92*spread, oy=Math.sin(sa)*0.92*spread, rz=(s*1.3)*spread, cz=Math.cos(rz),sz=Math.sin(rz),
-          hue=(s%2===0)?214:142, cp=[],lp=[],rp=[];
-      for(var i=0;i<n;i++){
-        var px=lerp(A.P[i][0],B.P[i][0],m)*scl, py=lerp(A.P[i][1],B.P[i][1],m)*scl, pz=lerp(A.P[i][2],B.P[i][2],m)*scl;
-        var sx=lerp(A.S[i][0],B.S[i][0],m), sy=lerp(A.S[i][1],B.S[i][1],m), szz=lerp(A.S[i][2],B.S[i][2],m), sl=Math.hypot(sx,sy,szz)||1; sx/=sl;sy/=sl;szz/=sl;
-        var wx=px*cz-py*sz+ox, wy=px*sz+py*cz+oy, wz=pz;
-        var dx=sx*cz-sy*sz, dy=sx*sz+sy*cz, dz=szz;
-        var w=(ss[i]==="H"?0.092:0.032)*wsc;
-        cp.push(project([wx,wy,wz],a));
-        lp.push(project([wx+dx*w,wy+dy*w,wz+dz*w],a));
-        rp.push(project([wx-dx*w,wy-dy*w,wz-dz*w],a));
+    var G=PROT;
+    pT+=0.0060;
+    if(pT>=4) pT-=4;
+
+    var k=Math.floor(pT);
+    var u=pT-k;
+    var hold=0.30;
+    var m=u<hold?0:ease((u-hold)/(1-hold));
+    var next=(k+1)%4;
+
+    function P(point, off, scale, rz){
+      off = off || [0,0,0];
+      scale = scale == null ? 1 : scale;
+      rz = rz || 0;
+
+      var x = point[0] * scale;
+      var y = point[1] * scale;
+      var z = point[2] * scale;
+
+      var cz=Math.cos(rz), sz=Math.sin(rz);
+      var xr=x*cz-y*sz;
+      var yr=x*sz+y*cz;
+
+      return project([xr+off[0], yr+off[1], z+off[2]], a);
+    }
+
+    function dline(A,B,hue,width,alpha){
+      var z=(A.z+B.z)/2;
+      var d=depth(z);
+      ctx.strokeStyle=col(hue,68,42+30*d,(0.25+0.55*d)*alpha*vis);
+      ctx.lineWidth=(width+3.0*d)*(A.sc*0.55+0.45);
+      ctx.lineCap="round";
+      ctx.lineJoin="round";
+      ctx.beginPath();
+      ctx.moveTo(A.x,A.y);
+      ctx.lineTo(B.x,B.y);
+      ctx.stroke();
+    }
+
+    function datom(A,hue,r,alpha){
+      var d=depth(A.z);
+      ctx.fillStyle=col(hue,82,58+22*d,(0.35+0.45*d)*alpha*vis);
+      ctx.beginPath();
+      ctx.arc(A.x,A.y,(r+2.2*d)*A.sc,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    function drawPrimary(alpha){
+      if(plevel){plevel.textContent="Primary structure"; plevel.style.opacity=vis*alpha;}
+
+      var pts=[];
+      for(var i=0;i<70;i++){
+        var u=i/69;
+        var x=(u-0.5)*2.25;
+        var y=Math.sin(u*Math.PI*7+pT*2.2)*0.09;
+        var z=Math.cos(u*Math.PI*5+pT*1.7)*0.10;
+        pts.push([x,y,z]);
       }
-      for(var i2=0;i2<n-1;i2++){
-        if(ss[i2]==="H"&&ss[i2+1]==="H") prims.push({q:1,A:lp[i2],B:rp[i2],C:rp[i2+1],D:lp[i2+1],La:lp[i2],Lb:lp[i2+1],z:(cp[i2].z+cp[i2+1].z)/2,hue:hue,sc:cp[i2].sc});
-        else prims.push({q:0,A:cp[i2],B:cp[i2+1],z:(cp[i2].z+cp[i2+1].z)/2,hue:hue,sc:cp[i2].sc});
+
+      var pr=pts.map(function(q){return P(q,[0,0,0],1,0);});
+      for(var j=0;j<pr.length-1;j++){
+        dline(pr[j],pr[j+1],206,1.7,alpha);
+      }
+
+      for(var j2=0;j2<pr.length;j2+=4){
+        datom(pr[j2], j2%8===0 ? 190 : 215, 1.8, alpha);
+      }
+
+      ctx.font="12px IBM Plex Mono, ui-monospace, monospace";
+      ctx.fillStyle="rgba(198,218,240,"+(0.55*alpha*vis)+")";
+      ctx.fillText("primary amino acid chain", 24, 34);
+    }
+
+    function helixPoints(center,axisAngle,len){
+      var pts=[];
+      len=len||56;
+      for(var i=0;i<len;i++){
+        var u=i/(len-1);
+        var th=u*Math.PI*8.8;
+        var x=(u-0.5)*0.88;
+        var y=Math.cos(th)*0.115;
+        var z=Math.sin(th)*0.115;
+
+        var ca=Math.cos(axisAngle), sa=Math.sin(axisAngle);
+        var xr=x*ca-y*sa;
+        var yr=x*sa+y*ca;
+
+        pts.push([center[0]+xr,center[1]+yr,center[2]+z]);
+      }
+      return pts;
+    }
+
+    function drawHelix(center,axisAngle,hue,alpha,off,scale,rz,molecular){
+      var pts=helixPoints(center,axisAngle,58);
+      var prims=[];
+      for(var i=0;i<pts.length-1;i++){
+        var A=P(pts[i],off,scale,rz);
+        var B=P(pts[i+1],off,scale,rz);
+        prims.push({A:A,B:B,z:(A.z+B.z)/2,i:i});
+      }
+      prims.sort(function(x,y){return x.z-y.z;});
+      prims.forEach(function(o){
+        dline(o.A,o.B,hue,2.4,alpha);
+      });
+
+      if(molecular){
+        for(var k=0;k<pts.length;k+=6){
+          datom(P(pts[k],off,scale,rz), k%12===0 ? 188 : 46, 1.8, alpha*0.85);
+        }
       }
     }
-    prims.sort(function(x,y){return x.z-y.z;}); ctx.lineCap="round"; ctx.lineJoin="round";
-    prims.forEach(function(o){var d=depth(o.z);
-      if(o.q===1){
-        ctx.fillStyle=col(o.hue,52,26+34*d,(0.5+0.5*d)*vis);
-        ctx.beginPath(); ctx.moveTo(o.A.x,o.A.y); ctx.lineTo(o.B.x,o.B.y); ctx.lineTo(o.C.x,o.C.y); ctx.lineTo(o.D.x,o.D.y); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle=col(o.hue,60,64+22*d,(0.4+0.5*d)*vis); ctx.lineWidth=1.1;
-        ctx.beginPath(); ctx.moveTo(o.La.x,o.La.y); ctx.lineTo(o.Lb.x,o.Lb.y); ctx.stroke();
-      } else {
-        ctx.strokeStyle=col(o.hue,40,52+26*d,(0.5+0.5*d)*vis); ctx.lineWidth=(1.6+2.6*d)*(o.sc*0.5+0.5);
-        ctx.beginPath(); ctx.moveTo(o.A.x,o.A.y); ctx.lineTo(o.B.x,o.B.y); ctx.stroke();
+
+    function drawSheet(center,axisAngle,hue,alpha,off,scale,rz,molecular){
+      var ca=Math.cos(axisAngle), sa=Math.sin(axisAngle);
+      var prims=[];
+
+      for(var k=0;k<5;k++){
+        var x0=-0.40+k*0.20;
+        var y0=0;
+        var p1=[center[0]+x0*ca-y0*sa, center[1]+x0*sa+y0*ca, center[2]-0.13];
+        var p2=[center[0]+(x0+0.12*sa)*ca-y0*sa, center[1]+x0*sa+y0*ca-0.12*ca, center[2]+0.13];
+
+        var A=P(p1,off,scale,rz);
+        var B=P(p2,off,scale,rz);
+        prims.push({A:A,B:B,z:(A.z+B.z)/2,k:k});
       }
-    });
+
+      prims.sort(function(x,y){return x.z-y.z;});
+      prims.forEach(function(o){
+        dline(o.A,o.B,hue,4.8,alpha);
+        if(molecular){
+          datom(o.A,44,1.6,alpha*0.75);
+          datom(o.B,44,1.6,alpha*0.75);
+        }
+      });
+    }
+
+    function drawFoldedUnit(alpha,off,scale,rz,molecular){
+      off=off||[0,0,0];
+      scale=scale==null?1:scale;
+      rz=rz||0;
+
+      drawHelix([-0.55,-0.12, 0.02],  0.78, 210, alpha, off, scale, rz, molecular);
+      drawHelix([ 0.38, 0.18, 0.12], -0.62, 148, alpha, off, scale, rz, molecular);
+      drawHelix([ 0.08,-0.43,-0.16],  0.10, 205, alpha, off, scale, rz, molecular);
+      drawSheet([ 0.12, 0.50, 0.04],  0.30, 185, alpha, off, scale, rz, molecular);
+
+      var loops=[
+        [[-0.96,-0.15,0.0],[-0.55,-0.12,0.02],[-0.12,0.08,0.10],[0.12,0.50,0.04]],
+        [[0.12,0.50,0.04],[0.50,0.18,0.10],[0.38,0.18,0.12],[0.08,-0.43,-0.16]],
+        [[0.08,-0.43,-0.16],[-0.25,-0.34,0.02],[-0.55,-0.12,0.02]]
+      ];
+
+      loops.forEach(function(path){
+        for(var i=0;i<path.length-1;i++){
+          dline(P(path[i],off,scale,rz),P(path[i+1],off,scale,rz),212,1.2,alpha*0.7);
+        }
+      });
+
+      if(molecular){
+        var atoms=[];
+        for(var i=0;i<26;i++){
+          var u=i/25*Math.PI*2;
+          atoms.push([
+            Math.cos(u*1.8)*0.55 + Math.sin(u*4.2)*0.08,
+            Math.sin(u*1.2)*0.44 + Math.cos(u*3.1)*0.08,
+            Math.sin(u*2.3)*0.42
+          ]);
+        }
+        var pr=atoms.map(function(q){return P(q,off,scale,rz);});
+        for(var q=0;q<pr.length-1;q++){
+          dline(pr[q],pr[q+1],190,0.55,alpha*0.36);
+        }
+        pr.sort(function(x,y){return x.z-y.z;}).forEach(function(q,i){
+          datom(q, i%3===0 ? 190 : i%3===1 ? 45 : 330, 1.45, alpha*0.72);
+        });
+      }
+    }
+
+    function drawSecondary(alpha){
+      if(plevel){plevel.textContent="Secondary structure"; plevel.style.opacity=vis*alpha;}
+
+      drawHelix([-0.65,-0.24,0.00],0.15,210,alpha,[0,0,0],1,0,false);
+      drawHelix([ 0.55,-0.22,0.05],0.10,148,alpha,[0,0,0],1,0,false);
+      drawSheet([ 0.00, 0.38,0.02],0.15,185,alpha,[0,0,0],1,0,false);
+
+      ctx.font="12px IBM Plex Mono, ui-monospace, monospace";
+      ctx.fillStyle="rgba(198,218,240,"+(0.55*alpha*vis)+")";
+      ctx.fillText("alpha helices + beta sheet", 24, 34);
+    }
+
+    function drawTertiary(alpha){
+      if(plevel){plevel.textContent="Tertiary structure"; plevel.style.opacity=vis*alpha;}
+
+      drawFoldedUnit(alpha,[0,0,0],1.0,0,true);
+
+      ctx.font="12px IBM Plex Mono, ui-monospace, monospace";
+      ctx.fillStyle="rgba(198,218,240,"+(0.55*alpha*vis)+")";
+      ctx.fillText("folded protein cartoon + molecular layer", 24, 34);
+    }
+
+    function drawQuaternary(alpha){
+      if(plevel){plevel.textContent="Quaternary structure"; plevel.style.opacity=vis*alpha;}
+
+      var offs=[
+        [-0.42,-0.34, 0.03],
+        [ 0.42,-0.30,-0.05],
+        [-0.36, 0.34,-0.06],
+        [ 0.38, 0.32, 0.06]
+      ];
+      var hues=[0,0.9,1.8,2.7];
+
+      for(var i=0;i<offs.length;i++){
+        drawFoldedUnit(alpha*0.92,offs[i],0.62,hues[i],true);
+      }
+
+      ctx.font="12px IBM Plex Mono, ui-monospace, monospace";
+      ctx.fillStyle="rgba(198,218,240,"+(0.55*alpha*vis)+")";
+      ctx.fillText("multi-chain protein assembly", 24, 34);
+    }
+
+    function drawState(s,alpha){
+      if(alpha<=0.001) return;
+      if(s===0) drawPrimary(alpha);
+      else if(s===1) drawSecondary(alpha);
+      else if(s===2) drawTertiary(alpha);
+      else drawQuaternary(alpha);
+    }
+
+    drawState(k,1-m);
+    drawState(next,m);
   }
 
   function buildGenome(){
-    var T=210, R=0.8, minor=0.14, turns=26, s1=[], s2=[], rungs=[];
-    for(var i=0;i<=T;i++){var phi=i/T*2*Math.PI, c=[Math.cos(phi)*R, Math.sin(phi)*R, 0], rad=[Math.cos(phi),Math.sin(phi),0], psi=phi*turns;
-      var p1=[c[0]+minor*Math.cos(psi)*rad[0], c[1]+minor*Math.cos(psi)*rad[1], c[2]+minor*Math.sin(psi)];
-      var p2=[c[0]+minor*Math.cos(psi+Math.PI)*rad[0], c[1]+minor*Math.cos(psi+Math.PI)*rad[1], c[2]+minor*Math.sin(psi+Math.PI)];
-      s1.push(p1); s2.push(p2); if(i%2===0 && i<T) rungs.push([p1,p2,(i%4===0)?45:198]);}
-    return {s1:s1, s2:s2, rungs:rungs};
+    return {
+      genes:[
+        {start:0.12,width:0.13,hue:210,label:"traI",track:-1},
+        {start:0.28,width:0.10,hue:190,label:"mob", track: 1},
+        {start:0.40,width:0.14,hue:145,label:"pil", track:-1},
+        {start:0.56,width:0.12,hue:205,label:"omp", track: 1},
+        {start:0.71,width:0.16,hue: 44,label:"sec", track:-1}
+      ]
+    };
   }
   function drawGenome(G,a,vis){
+    if(plevel) plevel.style.opacity=0;
+
+    var y=H*0.52;
+    var x0=W*0.10;
+    var x1=W*0.90;
+
+    function alpha(v){return Math.max(0,Math.min(1,v*vis));}
+
+    ctx.save();
+
+    ctx.strokeStyle="rgba(120,180,230,"+alpha(0.38)+")";
+    ctx.lineWidth=3;
     ctx.lineCap="round";
-    var P1=G.s1.map(function(p){return project(p,a);}), P2=G.s2.map(function(p){return project(p,a);});
-    var prims=[];
-    for(var i=0;i<P1.length-1;i++){ prims.push({k:1,A:P1[i],B:P1[i+1],z:(P1[i].z+P1[i+1].z)/2,h:205});
-      prims.push({k:1,A:P2[i],B:P2[i+1],z:(P2[i].z+P2[i+1].z)/2,h:176}); }
-    G.rungs.forEach(function(rg){var A=project(rg[0],a),B=project(rg[1],a); prims.push({k:2,A:A,B:B,z:(A.z+B.z)/2,h:rg[2]});});
-    prims.sort(function(x,y){return x.z-y.z;});
-    prims.forEach(function(o){var d=depth(o.z);
-      if(o.k===1){ ctx.strokeStyle=col(o.h,60,40+30*d,(0.34+0.6*d)*vis); ctx.lineWidth=(1.5+3*d); }
-      else { ctx.strokeStyle=col(o.h,65,48+22*d,(0.2+0.5*d)*vis); ctx.lineWidth=(0.9+1.7*d); }
-      ctx.beginPath(); ctx.moveTo(o.A.x,o.A.y); ctx.lineTo(o.B.x,o.B.y); ctx.stroke();});
+    ctx.beginPath();
+    ctx.moveTo(x0,y);
+    ctx.lineTo(x1,y);
+    ctx.stroke();
+
+    for(var t=0;t<=20;t++){
+      var x=x0+(x1-x0)*t/20;
+      ctx.strokeStyle="rgba(120,180,230,"+alpha(t%5===0?0.28:0.15)+")";
+      ctx.lineWidth=t%5===0?1.3:0.8;
+      ctx.beginPath();
+      ctx.moveTo(x,y-8);
+      ctx.lineTo(x,y+8);
+      ctx.stroke();
+    }
+
+    function drawArrow(x,y,w,h,hue,label,track,pulse){
+      var light=44+pulse*13;
+      ctx.fillStyle=col(hue,75,light,alpha(0.90));
+      ctx.beginPath();
+
+      if(w >= 0){
+        ctx.moveTo(x,y-h/2);
+        ctx.lineTo(x+w-h*0.45,y-h/2);
+        ctx.lineTo(x+w,y);
+        ctx.lineTo(x+w-h*0.45,y+h/2);
+        ctx.lineTo(x,y+h/2);
+      } else {
+        ctx.moveTo(x,y-h/2);
+        ctx.lineTo(x+w+h*0.45,y-h/2);
+        ctx.lineTo(x+w,y);
+        ctx.lineTo(x+w+h*0.45,y+h/2);
+        ctx.lineTo(x,y+h/2);
+      }
+
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle=col(hue,80,70,alpha(0.36));
+      ctx.lineWidth=1;
+      ctx.stroke();
+
+      ctx.fillStyle="rgba(230,240,255,"+alpha(0.82)+")";
+      ctx.font="11px IBM Plex Mono, ui-monospace, monospace";
+      ctx.fillText(label,x+8,y+4);
+
+      var cx=x+w/2;
+      ctx.strokeStyle="rgba(120,180,230,"+alpha(0.20)+")";
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(cx,y-track*18);
+      ctx.lineTo(cx,H*0.52);
+      ctx.stroke();
+    }
+
+    G.genes.forEach(function(g,i){
+      var gx=x0+(x1-x0)*g.start;
+      var gw=(x1-x0)*g.width;
+      var gy=y + g.track*38;
+      var pulse=0.5+0.5*Math.sin(a*4+i*1.4);
+      drawArrow(gx,gy,gw,30,g.hue,g.label,g.track,pulse);
+    });
+
+    for(var i=0;i<92;i++){
+      var u=i/91;
+      var x=x0+(x1-x0)*u;
+      var yy=y+Math.sin(i*0.62+a*6)*7.5;
+      ctx.fillStyle=i%2===0
+        ? "rgba(56,189,248,"+alpha(0.32)+")"
+        : "rgba(52,211,153,"+alpha(0.28)+")";
+      ctx.beginPath();
+      ctx.arc(x,yy,2.0,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.font="12px IBM Plex Mono, ui-monospace, monospace";
+    ctx.fillStyle="rgba(198,218,240,"+alpha(0.60)+")";
+    ctx.fillText("annotated microbial locus / operon schematic",24,34);
+
+    ctx.fillStyle="rgba(142,163,191,"+alpha(0.70)+")";
+    ctx.font="10px IBM Plex Mono, ui-monospace, monospace";
+    ctx.fillText("comparative genomics · gene clusters · secretion systems",24,52);
+
+    ctx.restore();
   }
 
   function buildNetwork(){
