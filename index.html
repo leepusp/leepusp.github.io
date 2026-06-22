@@ -659,11 +659,11 @@ function drawQuaternary(alpha,a){
 }
 
 function drawStructure(alpha,a){
-  pT+=0.0014;
+  pT+=0.0022;
   if(pT>=4)pT-=4;
   var k=Math.floor(pT);
   var u=pT-k;
-  var hold=0.58;
+  var hold=0.62;
   var m=u<hold?0:ease((u-hold)/(1-hold));
   var next=(k+1)%4;
 
@@ -901,10 +901,26 @@ document.querySelectorAll("#switch button").forEach(function(b){
 });
 
 var timer=null;
+
+function modeDelay(m){
+  if(m===0) return 32000;  // Structure: tempo suficiente para completar primária -> quaternária
+  if(m===1) return 16000;  // Genomics: um pouco mais dinâmico
+  return 14000;            // Network / Phylogeny
+}
+
 function resetTimer(){
   if(reduce)return;
-  if(timer)clearInterval(timer);
-  timer=setInterval(function(){go((mode+1)%4)},12000);
+  if(timer)clearTimeout(timer);
+
+  function schedule(delay){
+    timer=setTimeout(function(){
+      var nextMode=(mode+1)%4;
+      go(nextMode);
+      schedule(modeDelay(nextMode));
+    }, delay);
+  }
+
+  schedule(modeDelay(mode));
 }
 
 function step(){
@@ -929,7 +945,7 @@ function step(){
   }
 
   drawers[mode](1,ang);
-  ang+=0.0015;
+  ang+=0.0022;
   if(!reduce)requestAnimationFrame(step);
 }
 
