@@ -109,6 +109,7 @@ input[type=range]{width:110px;accent-color:var(--accent)}
     <select id="layoutSel">
       <option value="rect">Rectangular</option>
       <option value="radial">Radial</option>
+      <option value="circular">Circular phylogram</option>
       <option value="unrooted">Unrooted</option>
     </select>
   </div>
@@ -128,7 +129,7 @@ input[type=range]{width:110px;accent-color:var(--accent)}
 
 <div class="stage">
   <canvas id="cv"></canvas>
-  <div class="hint">scroll = zoom · drag = pan · click internal node = collapse/expand</div>
+  <div class="hint">scroll = zoom · drag = pan · click internal node = collapse/expand · circular = arc phylogram</div>
   <div class="tip" id="tip"></div>
 
   <div class="sheet" id="sheet">
@@ -355,7 +356,7 @@ function rebuild(){
   assignGroups();
 
   if(layout==="rect")layoutRect();
-  else if(layout==="radial")layoutRadial();
+  else if(layout==="radial" || layout==="circular")layoutRadial();
   else layoutUnrooted();
 
   draw();
@@ -412,6 +413,7 @@ function transform(){
   };
 }
 
+
 function draw(){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle="#0b1626";
@@ -424,27 +426,31 @@ function draw(){
   ctx.lineCap="round";
   ctx.lineJoin="round";
 
-  walk(root,function(nd){
-    children(nd).forEach(function(c){
-      var p=S(nd.px,nd.py),q=S(c.px,c.py);
+  if(layout==="circular"){
+    drawCircularPhylogram(S);
+  }else{
+    walk(root,function(nd){
+      children(nd).forEach(function(c){
+        var p=S(nd.px,nd.py),q=S(c.px,c.py);
 
-      ctx.strokeStyle=color(c);
-      ctx.lineWidth=1.6;
-      ctx.beginPath();
+        ctx.strokeStyle=color(c);
+        ctx.lineWidth=1.6;
+        ctx.beginPath();
 
-      if(layout==="rect"){
-        ctx.moveTo(p[0],q[1]);
-        ctx.lineTo(q[0],q[1]);
-        ctx.moveTo(p[0],p[1]);
-        ctx.lineTo(p[0],q[1]);
-      }else{
-        ctx.moveTo(p[0],p[1]);
-        ctx.lineTo(q[0],q[1]);
-      }
+        if(layout==="rect"){
+          ctx.moveTo(p[0],q[1]);
+          ctx.lineTo(q[0],q[1]);
+          ctx.moveTo(p[0],p[1]);
+          ctx.lineTo(p[0],q[1]);
+        }else{
+          ctx.moveTo(p[0],p[1]);
+          ctx.lineTo(q[0],q[1]);
+        }
 
-      ctx.stroke();
+        ctx.stroke();
+      });
     });
-  });
+  }
 
   ctx.font="11px 'IBM Plex Mono', monospace";
 
@@ -484,6 +490,74 @@ function draw(){
         ctx.font="11px 'IBM Plex Mono', monospace";
       }
     }
+  });
+}
+
+function drawCircularPhylogram(S){
+  var C=S(0,0);
+
+  function normAng(a){
+    while(a<0)a+=Math.PI*2;
+    while(a>=Math.PI*2)a-=Math.PI*2;
+    return a;
+  }
+
+  function arcBetween(a0,a1){
+    a0=normAng(a0);
+    a1=normAng(a1);
+
+    var diff=a1-a0;
+
+    if(diff>Math.PI)diff-=Math.PI*2;
+    if(diff<-Math.PI)diff+=Math.PI*2;
+
+    return [a0,a0+diff];
+  }
+
+  function radiusOf(nd){
+    var p=S(nd.px,nd.py);
+    var dx=p[0]-C[0];
+    var dy=p[1]-C[1];
+    return Math.sqrt(dx*dx+dy*dy);
+  }
+
+
+  // First draw circular arcs connecting descendant branches at each internal radius.
+  walk(root,function(nd){
+    var ch=children(nd);
+    if(!ch.length)return;
+
+    var r=radiusOf(nd);
+    if(r<1)return;
+
+    var a0=ch[0].ang;
+    var a1=ch[ch.length-1].ang;
+    var ab=arcBetween(a0,a1);
+
+    ctx.strokeStyle=color(nd);
+    ctx.lineWidth=1.35;
+    ctx.beginPath();
+    ctx.arc(C[0],C[1],r,ab[0],ab[1],ab[1]<ab[0]);
+    ctx.stroke();
+  });
+
+  // Then draw radial branches from parent radius to child radius.
+  walk(root,function(nd){
+    children(nd).forEach(function(c){
+      var rp=radiusOf(nd);
+      var rc=radiusOf(c);
+      var a=c.ang;
+
+      var p=[C[0]+Math.cos(a)*rp,C[1]+Math.sin(a)*rp];
+      var q=[C[0]+Math.cos(a)*rc,C[1]+Math.sin(a)*rc];
+
+      ctx.strokeStyle=color(c);
+      ctx.lineWidth=1.55;
+      ctx.beginPath();
+      ctx.moveTo(p[0],p[1]);
+      ctx.lineTo(q[0],q[1]);
+      ctx.stroke();
+    });
   });
 }
 
