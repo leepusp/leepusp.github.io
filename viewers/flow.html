@@ -263,7 +263,7 @@ input[type=color]{
 <div class="toolbar">
   <div class="grp">
     <button class="btn primary" id="exBtn">Example</button>
-    <button class="btn upload">Upload table<input type="file" id="fileInput" accept=".tsv,.csv,.txt"></button>
+    <button class="btn upload">Upload table<input type="file" id="fileInput" accept=".tsv,.csv,.txt,.nwk,.newick,.tree,.tre"></button>
     <button class="btn" id="pasteBtn">Paste table</button>
   </div>
 
@@ -316,7 +316,7 @@ input[type=color]{
   <div class="tip" id="tip"></div>
 
   <div class="colbar">
-    drag nodes · drag background = pan · scroll = zoom · table: <b style="color:#8195b0">source ⇥ target ⇥ value</b>
+    drag nodes · drag background = pan · scroll = zoom · table: <b style="color:#8195b0">source ⇥ target ⇥ value</b> · also accepts Newick
   </div>
 
   <div class="sheet" id="sheet">
@@ -324,9 +324,9 @@ input[type=color]{
     <p>
       One link per line:
       <b>source ⇥ target ⇥ value</b>.
-      Separators accepted: tab, comma or semicolon. Lines starting with # are ignored.
+      Separators accepted: tab, comma or semicolon. Lines starting with # are ignored. You can also paste a Newick tree.
     </p>
-    <textarea id="pasteArea" spellcheck="false" placeholder="Taxon&#9;Protein_family&#9;38&#10;Protein_family&#9;Functional_category&#9;50"></textarea>
+    <textarea id="pasteArea" spellcheck="false" placeholder="Taxon&#9;Protein_family&#9;38&#10;Protein_family&#9;Functional_category&#9;50&#10;&#10;or Newick:&#10;((A:0.1,B:0.2)95:0.3,C:0.4)100:0;"></textarea>
     <div class="row">
       <button class="btn" id="pasteCancel">Cancel</button>
       <button class="btn primary" id="pasteLoad">Load flows</button>
@@ -841,16 +841,185 @@ function updateInfo(){
     (custom?" · custom colors <b>"+custom+"</b>":"");
 }
 
+
+function looksLikeNewick(text){
+  var t=text.trim();
+  return t[0]==="(" && /;\s*$/.test(t);
+}
+
+function newickToFlows(text){
+  text=text.trim();
+
+  var i=0;
+  var internalCounter=0;
+  var tipCounter=0;
+
+  function skip(){
+    while(i<text.length && /\s/.test(text[i]))i++;
+  }
+
+  function readName(){
+    skip();
+
+    var out="";
+
+    if(text[i]==="'"){
+      i++;
+      while(i<text.length && text[i]!=="'"){
+        out+=text[i++];
+      }
+
+      if(text[i]==="'")i++;
+      return out.trim();
+    }
+
+    while(i<text.length && ",():;".indexOf(text[i])<0){
+      out+=text[i++];
+    }
+
+    return out.trim();
+  }
+
+  function readLength(){
+    skip();
+
+    if(text[i]!==":")return null;
+
+    i++;
+
+    var out="";
+
+    while(i<text.length && ",():;".indexOf(text[i])<0){
+      out+=text[i++];
+    }
+
+    var v=parseFloat(out);
+    return isFinite(v)?v:null;
+  }
+
+  function sanitizeName(x){
+    return String(x || "")
+      .trim()
+      .replace(/\s+/g,"_")
+      .replace(/[^\w.\-:|]/g,"_");
+  }
+
+  function parseNode(){
+    skip();
+
+    var nd={
+      children:[],
+      name:"",
+      support:"",
+      length:null,
+      leaves:0
+    };
+
+    if(text[i]==="("){
+      i++;
+
+      nd.children.push(parseNode());
+      skip();
+
+      while(text[i]===","){
+        i++;
+        nd.children.push(parseNode());
+        skip();
+      }
+
+      if(text[i]===")")i++;
+
+      var label=readName();
+      nd.length=readLength();
+      nd.support=label || "";
+      internalCounter++;
+
+      if(label){
+        nd.name="clade_"+String(internalCounter).padStart(2,"0")+"_support_"+sanitizeName(label);
+      }else{
+        nd.name="clade_"+String(internalCounter).padStart(2,"0");
+      }
+    }else{
+      var nm=readName();
+      nd.length=readLength();
+      tipCounter++;
+      nd.name=sanitizeName(nm || ("tip_"+tipCounter));
+    }
+
+    return nd;
+  }
+
+  function countLeaves(nd){
+    if(!nd.children.length){
+      nd.leaves=1;
+      return 1;
+    }
+
+    var n=0;
+
+    nd.children.forEach(function(c){
+      n+=countLeaves(c);
+    });
+
+    nd.leaves=n;
+    return n;
+  }
+
+  function branchValue(child){
+    // Use descendant tip count as Sankey weight.
+    // This makes clade size visible even when branch lengths are tiny.
+    return Math.max(1,child.leaves || 1);
+  }
+
+  function walk(nd,links){
+    nd.children.forEach(function(c){
+      links.push({
+        s:nd.name,
+        t:c.name,
+        v:branchValue(c)
+      });
+
+      walk(c,links);
+    });
+  }
+
+  var root=parseNode();
+
+  if(!root.name){
+    root.name="root";
+  }
+
+  countLeaves(root);
+
+  if(root.name.indexOf("clade_")===0){
+    root.name="root_"+root.name;
+  }
+
+  var links=[];
+  walk(root,links);
+
+  if(!links.length){
+    throw new Error("Newick tree did not produce any source-target links.");
+  }
+
+  return links;
+}
+
 function loadText(text){
   try{
-    graph=buildGraph(parseFlows(text));
+    if(looksLikeNewick(text)){
+      graph=buildGraph(newickToFlows(text));
+    }else{
+      graph=buildGraph(parseFlows(text));
+    }
+
     manualPos={};
     customColors={};
     view.ready=false;
     updateNodeSelector();
     render();
   }catch(err){
-    alert("Could not load: "+err.message);
+    alert("Could not load: "+err.message+"\\n\\nFor tables, use: source target value. For trees, use valid Newick.");
   }
 }
 
