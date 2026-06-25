@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Data Flow Viewer · LEEP BIOINFO</title>
-<meta name="description" content="Interactive Sankey flow viewer for comparative-genomics and bioinformatics data — LEEP BIOINFO.">
+<title>Interactive Data Flow Viewer · LEEP BIOINFO</title>
+<meta name="description" content="Interactive Sankey flow viewer with draggable nodes and editable colors — LEEP BIOINFO.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,14 +24,8 @@
   --ui:"Space Grotesk",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,monospace;
 }
-
 *{box-sizing:border-box}
-
-html,body{
-  height:100%;
-  margin:0;
-}
-
+html,body{height:100%;margin:0}
 body{
   background:var(--bg);
   color:var(--text);
@@ -40,9 +34,7 @@ body{
   grid-template-rows:auto auto 1fr;
   height:100dvh;
   overflow:hidden;
-  -webkit-font-smoothing:antialiased;
 }
-
 header{
   display:flex;
   align-items:center;
@@ -51,7 +43,6 @@ header{
   border-bottom:1px solid var(--line);
   background:linear-gradient(180deg,#0d1b2e,#0a1422);
 }
-
 .brand{
   display:flex;
   align-items:baseline;
@@ -59,9 +50,7 @@ header{
   font-weight:700;
   letter-spacing:.04em;
 }
-
 .brand b{color:var(--accent2)}
-
 .brand span{
   font-size:.72rem;
   font-weight:500;
@@ -69,9 +58,7 @@ header{
   letter-spacing:.08em;
   text-transform:uppercase;
 }
-
 .spacer{flex:1}
-
 .back{
   color:var(--muted);
   text-decoration:none;
@@ -81,29 +68,25 @@ header{
   border-radius:8px;
   transition:.15s;
 }
-
 .back:hover{
   color:var(--text);
   border-color:var(--accent);
   background:#10233c;
 }
-
 .toolbar{
   display:flex;
   flex-wrap:wrap;
   align-items:center;
-  gap:10px 16px;
+  gap:10px 14px;
   padding:11px 20px;
   border-bottom:1px solid var(--line);
   background:var(--panel);
 }
-
 .grp{
   display:flex;
   align-items:center;
   gap:8px;
 }
-
 .lbl{
   font-family:var(--mono);
   font-size:.66rem;
@@ -111,7 +94,6 @@ header{
   text-transform:uppercase;
   color:var(--muted);
 }
-
 .btn{
   border:1px solid var(--line);
   background:var(--panel2);
@@ -124,29 +106,23 @@ header{
   cursor:pointer;
   transition:.15s;
 }
-
 .btn:hover{border-color:var(--accent)}
-
 .btn.primary{
   background:var(--accent);
   border-color:var(--accent);
   color:#fff;
 }
-
 .btn.primary:hover{background:#2f6fe0}
-
 .upload{
   position:relative;
   overflow:hidden;
 }
-
 .upload input{
   position:absolute;
   inset:0;
   opacity:0;
   cursor:pointer;
 }
-
 select{
   background:var(--panel2);
   color:var(--text);
@@ -155,13 +131,18 @@ select{
   padding:6px 9px;
   font-family:var(--ui);
   font-size:.82rem;
+  max-width:170px;
 }
-
-input[type=range]{
-  width:108px;
-  accent-color:var(--accent);
+input[type=range]{width:95px;accent-color:var(--accent)}
+input[type=color]{
+  width:34px;
+  height:30px;
+  padding:2px;
+  background:var(--panel2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  cursor:pointer;
 }
-
 .chk{
   display:flex;
   align-items:center;
@@ -170,54 +151,44 @@ input[type=range]{
   color:var(--muted);
   cursor:pointer;
 }
-
 .info{
   font-family:var(--mono);
   font-size:.74rem;
   color:var(--muted);
 }
-
-.info b{
-  color:var(--text);
-  font-weight:500;
-}
-
+.info b{color:var(--text);font-weight:500}
 .stage{
   position:relative;
   min-height:0;
   background:#0b1626;
 }
-
 #svg{
   display:block;
   width:100%;
   height:100%;
+  cursor:grab;
+  user-select:none;
 }
-
+#svg:active{cursor:grabbing}
 .link{
-  fill-opacity:.32;
+  fill-opacity:.30;
   transition:fill-opacity .12s;
   cursor:pointer;
 }
-
-.link.dim{fill-opacity:.07}
-.link.hot{fill-opacity:.72}
-
+.link.dim{fill-opacity:.06}
+.link.hot{fill-opacity:.76}
 .node rect{
-  cursor:pointer;
+  cursor:move;
   stroke:#0b1626;
-  stroke-width:.6;
+  stroke-width:.8;
 }
-
 .node text{
   font-family:var(--mono);
   font-size:11px;
   fill:#c4d2e6;
   pointer-events:none;
 }
-
 .node.dim{opacity:.25}
-
 .tip{
   position:absolute;
   pointer-events:none;
@@ -232,12 +203,10 @@ input[type=range]{
   white-space:nowrap;
   z-index:5;
 }
-
 .tip b{
   color:var(--accent3);
   font-weight:500;
 }
-
 .colbar{
   position:absolute;
   left:16px;
@@ -246,7 +215,6 @@ input[type=range]{
   font-size:.68rem;
   color:#46597a;
 }
-
 .sheet{
   position:absolute;
   inset:0;
@@ -258,20 +226,9 @@ input[type=range]{
   padding:22px;
   gap:12px;
 }
-
 .sheet.show{display:flex}
-
-.sheet h2{
-  margin:0;
-  font-size:1rem;
-}
-
-.sheet p{
-  margin:0;
-  color:var(--muted);
-  font-size:.82rem;
-}
-
+.sheet h2{margin:0;font-size:1rem}
+.sheet p{margin:0;color:var(--muted);font-size:.82rem}
 .sheet textarea{
   flex:1;
   background:#081222;
@@ -283,22 +240,14 @@ input[type=range]{
   padding:12px;
   resize:none;
 }
-
 .sheet .row{
   display:flex;
   gap:10px;
   justify-content:flex-end;
 }
-
 @media(max-width:760px){
-  header,.toolbar{
-    padding-left:12px;
-    padding-right:12px;
-  }
-
-  .brand{
-    flex-wrap:wrap;
-  }
+  header,.toolbar{padding-left:12px;padding-right:12px}
+  .brand{flex-wrap:wrap}
 }
 </style>
 </head>
@@ -306,7 +255,7 @@ input[type=range]{
 <body>
 
 <header>
-  <div class="brand">LEEP <b>BIOINFO</b> <span>Data Flow Viewer</span></div>
+  <div class="brand">LEEP <b>BIOINFO</b> <span>Interactive Data Flow Viewer</span></div>
   <div class="spacer"></div>
   <a class="back" href="../index.html">← Portal</a>
 </header>
@@ -327,12 +276,35 @@ input[type=range]{
   </div>
 
   <div class="grp">
+    <span class="lbl">Palette</span>
+    <select id="paletteSel">
+      <option value="leep">LEEP blue</option>
+      <option value="vivid">Vivid</option>
+      <option value="soft">Soft</option>
+      <option value="warm">Warm</option>
+      <option value="mono">Blue scale</option>
+    </select>
+  </div>
+
+  <div class="grp">
+    <span class="lbl">Node</span>
+    <select id="nodeSel"></select>
+    <input type="color" id="nodeColor" value="#3b82f6">
+  </div>
+
+  <div class="grp">
     <span class="lbl">Spacing</span>
-    <input type="range" id="padRange" min="4" max="40" value="14">
+    <input type="range" id="padRange" min="4" max="44" value="14">
   </div>
 
   <div class="grp">
     <label class="chk"><input type="checkbox" id="labelChk" checked> labels</label>
+  </div>
+
+  <div class="grp">
+    <button class="btn" id="resetViewBtn">Reset view</button>
+    <button class="btn" id="resetLayoutBtn">Reset layout</button>
+    <button class="btn" id="resetColorsBtn">Reset colors</button>
   </div>
 
   <div class="grp spacer"></div>
@@ -344,7 +316,7 @@ input[type=range]{
   <div class="tip" id="tip"></div>
 
   <div class="colbar">
-    flow table: <b style="color:#8195b0">source ⇥ target ⇥ value</b> · one link per line
+    drag nodes · drag background = pan · scroll = zoom · table: <b style="color:#8195b0">source ⇥ target ⇥ value</b>
   </div>
 
   <div class="sheet" id="sheet">
@@ -374,47 +346,44 @@ var stage=svg.parentNode;
 var W=0,H=0;
 var graph=null;
 var colorMode="source";
+var paletteName="leep";
 var padN=14;
 var showLabels=true;
+var manualPos={};
+var customColors={};
+var view={x:0,y:0,w:100,h:100,ready:false};
+var dragNode=null;
+var panDrag=null;
 
-var CLU=[
-  "#38bdf8",
-  "#34d399",
-  "#f59e0b",
-  "#a78bfa",
-  "#f472b6",
-  "#22d3ee",
-  "#fb7185",
-  "#a3e635"
-];
+var PALETTES={
+  leep:["#3b82f6","#38bdf8","#34d399","#60a5fa","#22d3ee","#2563eb","#a3e635","#f59e0b"],
+  vivid:["#38bdf8","#34d399","#f59e0b","#a78bfa","#f472b6","#22d3ee","#fb7185","#a3e635"],
+  soft:["#7dd3fc","#86efac","#fde68a","#c4b5fd","#f9a8d4","#99f6e4","#fca5a5","#bef264"],
+  warm:["#f59e0b","#fb7185","#f97316","#eab308","#ef4444","#d946ef","#a855f7","#22d3ee"],
+  mono:["#dbeafe","#bfdbfe","#93c5fd","#60a5fa","#3b82f6","#2563eb","#1d4ed8","#1e40af"]
+};
+
+function palette(){
+  return PALETTES[paletteName] || PALETTES.leep;
+}
 
 function parseFlows(text){
   var links=[];
 
   text.split(/\r?\n/).forEach(function(line){
     line=line.trim();
-
     if(!line || line[0]==="#")return;
 
-    var p=line.split(/\t|,|;/).map(function(s){
-      return s.trim();
-    });
-
+    var p=line.split(/\t|,|;/).map(function(s){return s.trim();});
     if(p.length<3)return;
 
     var v=parseFloat(p[2]);
-
     if(!(v>0))return;
 
-    links.push({
-      s:p[0],
-      t:p[1],
-      v:v
-    });
+    links.push({s:p[0],t:p[1],v:v});
   });
 
   if(!links.length)throw new Error("No 'source, target, value' rows found.");
-
   return links;
 }
 
@@ -424,17 +393,9 @@ function buildGraph(links){
 
   function get(id){
     if(!nodes[id]){
-      nodes[id]={
-        id:id,
-        inL:[],
-        outL:[],
-        layer:0,
-        val:0
-      };
-
+      nodes[id]={id:id,inL:[],outL:[],layer:0,val:0};
       order.push(id);
     }
-
     return nodes[id];
   }
 
@@ -458,52 +419,38 @@ function buildGraph(links){
       n.layer=0;
     }else{
       var m=0;
-
       n.inL.forEach(function(l){
         var ll=layerOf(l.S)+1;
-
         if(ll>m)m=ll;
       });
-
       n.layer=m;
     }
 
     visiting[n.id]=false;
     visited[n.id]=true;
-
     return n.layer;
   }
 
-  order.forEach(function(id){
-    layerOf(nodes[id]);
-  });
+  order.forEach(function(id){layerOf(nodes[id]);});
 
   order.forEach(function(id){
     var n=nodes[id];
     var si=n.inL.reduce(function(a,l){return a+l.v;},0);
     var so=n.outL.reduce(function(a,l){return a+l.v;},0);
-
     n.val=Math.max(si,so);
   });
 
   var maxLayer=0;
-
   order.forEach(function(id){
     if(nodes[id].layer>maxLayer)maxLayer=nodes[id].layer;
   });
 
-  return {
-    nodes:nodes,
-    order:order,
-    links:links,
-    maxLayer:maxLayer
-  };
+  return {nodes:nodes,order:order,links:links,maxLayer:maxLayer,nodeW:15};
 }
 
 function layout(){
   var nodeW=15;
-  var ML=14,MR=14,MT=18,MB=18;
-
+  var ML=24,MR=24,MT=24,MB=28;
   var cols=[];
 
   for(var L=0;L<=graph.maxLayer;L++)cols.push([]);
@@ -529,13 +476,12 @@ function layout(){
   cols.forEach(function(col,L){
     col.forEach(function(n){
       n.x=ML+L*dx;
-      n.h=Math.max(1.5,n.val*scale);
+      n.h=Math.max(2,n.val*scale);
     });
   });
 
   cols.forEach(function(col){
     var y=MT;
-
     col.forEach(function(n){
       n.y=y;
       y+=n.h+padN;
@@ -547,13 +493,11 @@ function layout(){
       col.forEach(function(n){
         if(n.inL.length){
           var w=0,s=0;
-
           n.inL.forEach(function(l){
             var c=l.S.y+l.S.h/2;
             w+=l.v;
             s+=c*l.v;
           });
-
           n.y=s/w-n.h/2;
         }
       });
@@ -565,13 +509,11 @@ function layout(){
       cols[L].forEach(function(n){
         if(n.outL.length){
           var w=0,s=0;
-
           n.outL.forEach(function(l){
             var c=l.T.y+l.T.h/2;
             w+=l.v;
             s+=c*l.v;
           });
-
           n.y=s/w-n.h/2;
         }
       });
@@ -580,8 +522,7 @@ function layout(){
 
   function resolve(){
     cols.forEach(function(col){
-      col.sort(function(a,b){return a.y-b.y});
-
+      col.sort(function(a,b){return a.y-b.y;});
       var y=MT;
 
       col.forEach(function(n){
@@ -590,15 +531,11 @@ function layout(){
       });
 
       var over=y-padN-(H-MB);
-
       if(over>0){
         y=H-MB;
-
         for(var i=col.length-1;i>=0;i--){
           var n=col[i];
-
           if(n.y+n.h>y)n.y=y-n.h;
-
           y=n.y-padN;
         }
       }
@@ -614,24 +551,30 @@ function layout(){
 
   graph.order.forEach(function(id){
     var n=graph.nodes[id];
+    if(manualPos[id]){
+      n.x=manualPos[id].x;
+      n.y=manualPos[id].y;
+    }
+  });
 
-    n.outL.sort(function(a,b){return a.T.y-b.T.y});
+  graph.order.forEach(function(id){
+    var n=graph.nodes[id];
 
+    n.outL.sort(function(a,b){return a.T.y-b.T.y;});
     var oy=n.y;
 
     n.outL.forEach(function(l){
       l.sy0=oy;
-      l.w=Math.max(0.7,l.v*scale);
+      l.w=Math.max(0.8,l.v*scale);
       oy+=l.w;
     });
 
-    n.inL.sort(function(a,b){return a.S.y-b.S.y});
-
+    n.inL.sort(function(a,b){return a.S.y-b.S.y;});
     var iy=n.y;
 
     n.inL.forEach(function(l){
       l.ty0=iy;
-      iy+=Math.max(0.7,l.v*scale);
+      iy+=Math.max(0.8,l.v*scale);
     });
   });
 
@@ -639,6 +582,7 @@ function layout(){
 }
 
 function assignColors(){
+  var pal=palette();
   var byLayer=graph.order.slice().sort(function(a,b){
     return graph.nodes[a].layer-graph.nodes[b].layer;
   });
@@ -650,10 +594,10 @@ function assignColors(){
       var n=graph.nodes[id];
 
       if(n.layer===0){
-        n.color=CLU[i++%CLU.length];
+        n.color=customColors[n.id] || pal[i++%pal.length];
       }else{
-        var big=n.inL.slice().sort(function(a,b){return b.v-a.v})[0];
-        n.color=big?big.S.color:"#5773a0";
+        var big=n.inL.slice().sort(function(a,b){return b.v-a.v;})[0];
+        n.color=customColors[n.id] || (big ? big.S.color : "#5773a0");
       }
     });
   }else{
@@ -663,10 +607,10 @@ function assignColors(){
       var n=graph.nodes[id];
 
       if(n.layer===graph.maxLayer){
-        n.color=CLU[j++%CLU.length];
+        n.color=customColors[n.id] || pal[j++%pal.length];
       }else{
-        var big=n.outL.slice().sort(function(a,b){return b.v-a.v})[0];
-        n.color=big?big.T.color:"#5773a0";
+        var big=n.outL.slice().sort(function(a,b){return b.v-a.v;})[0];
+        n.color=customColors[n.id] || (big ? big.T.color : "#5773a0");
       }
     });
   }
@@ -678,11 +622,7 @@ function assignColors(){
 
 function el(tag,attrs){
   var e=document.createElementNS(SVGNS,tag);
-
-  for(var k in attrs){
-    e.setAttribute(k,attrs[k]);
-  }
-
+  for(var k in attrs)e.setAttribute(k,attrs[k]);
   return e;
 }
 
@@ -700,6 +640,48 @@ function ribbon(l){
     "C"+xm+","+(b0+w)+" "+xm+","+(a0+w)+" "+xs+","+(a0+w)+"Z";
 }
 
+function setViewBox(){
+  svg.setAttribute("viewBox",view.x+" "+view.y+" "+view.w+" "+view.h);
+}
+
+function resetView(){
+  view={x:0,y:0,w:W,h:H,ready:true};
+  setViewBox();
+}
+
+function svgPoint(e){
+  var pt=svg.createSVGPoint();
+  pt.x=e.clientX;
+  pt.y=e.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function updateNodeSelector(){
+  var sel=document.getElementById("nodeSel");
+  sel.innerHTML="";
+
+  if(!graph)return;
+
+  graph.order.forEach(function(id){
+    var o=document.createElement("option");
+    o.value=id;
+    o.textContent=id;
+    sel.appendChild(o);
+  });
+
+  syncColorPicker();
+}
+
+function syncColorPicker(){
+  var sel=document.getElementById("nodeSel");
+  var pick=document.getElementById("nodeColor");
+
+  if(!graph || !sel.value)return;
+
+  var n=graph.nodes[sel.value];
+  pick.value=customColors[sel.value] || n.color || "#3b82f6";
+}
+
 function render(){
   while(svg.firstChild)svg.removeChild(svg.firstChild);
 
@@ -708,7 +690,11 @@ function render(){
 
   if(!graph || W<10 || H<10)return;
 
-  svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  if(!view.ready || view.w<=0 || view.h<=0){
+    resetView();
+  }else{
+    setViewBox();
+  }
 
   layout();
   assignColors();
@@ -722,12 +708,7 @@ function render(){
   graph.links.slice().sort(function(a,b){
     return b.w-a.w;
   }).forEach(function(l){
-    var p=el("path",{
-      d:ribbon(l),
-      fill:l.color,
-      class:"link"
-    });
-
+    var p=el("path",{d:ribbon(l),fill:l.color,class:"link"});
     p.__link=l;
     gLinks.appendChild(p);
 
@@ -736,58 +717,54 @@ function render(){
       showTip(e,"<b>"+l.s+"</b> → <b>"+l.t+"</b> · "+fmt(l.v));
     });
 
-    p.addEventListener("mousemove",function(e){
-      moveTip(e);
-    });
-
+    p.addEventListener("mousemove",moveTip);
     p.addEventListener("mouseleave",clearFocus);
   });
 
   graph.order.forEach(function(id){
     var n=graph.nodes[id];
     var grp=el("g",{class:"node"});
-
     n.__g=grp;
     gNodes.appendChild(grp);
 
-    var rect=el("rect",{
-      x:n.x,
-      y:n.y,
-      width:graph.nodeW,
-      height:n.h,
-      fill:n.color,
-      rx:2
-    });
-
+    var rect=el("rect",{x:n.x,y:n.y,width:graph.nodeW,height:n.h,fill:n.color,rx:2});
     grp.appendChild(rect);
 
     if(showLabels){
       var left=n.x<W/2;
-
       var t=el("text",{
         x:left?n.x+graph.nodeW+5:n.x-5,
         y:n.y+n.h/2,
         "text-anchor":left?"start":"end",
         "dominant-baseline":"middle"
       });
-
       t.textContent=n.id;
       grp.appendChild(t);
     }
 
+    grp.addEventListener("pointerdown",function(e){
+      e.stopPropagation();
+      var p=svgPoint(e);
+      dragNode={
+        id:n.id,
+        dx:p.x-n.x,
+        dy:p.y-n.y
+      };
+    });
+
     grp.addEventListener("mouseenter",function(e){
       focusNode(n);
       showTip(e,"<b>"+n.id+"</b> · "+fmt(n.val)+" · layer "+(n.layer+1));
+      document.getElementById("nodeSel").value=n.id;
+      syncColorPicker();
     });
 
-    grp.addEventListener("mousemove",function(e){
-      moveTip(e);
-    });
-
+    grp.addEventListener("mousemove",moveTip);
     grp.addEventListener("mouseleave",clearFocus);
   });
 
   updateInfo();
+  syncColorPicker();
 }
 
 function fmt(v){
@@ -809,9 +786,7 @@ function focusLink(l){
 function focusNode(n){
   var set=new Set();
 
-  n.inL.concat(n.outL).forEach(function(l){
-    set.add(l);
-  });
+  n.inL.concat(n.outL).forEach(function(l){set.add(l);});
 
   svg.querySelectorAll(".link").forEach(function(p){
     if(set.has(p.__link)){
@@ -853,32 +828,104 @@ function moveTip(e){
 }
 
 function updateInfo(){
-  var total=graph.links.reduce(function(a,l){
-    return a+l.v;
-  },0);
+  var total=graph.links.reduce(function(a,l){return a+l.v;},0);
+  var moved=Object.keys(manualPos).length;
+  var custom=Object.keys(customColors).length;
 
   document.getElementById("info").innerHTML=
     "<b>"+graph.order.length+"</b> nodes · "+
     "<b>"+graph.links.length+"</b> links · "+
     "<b>"+(graph.maxLayer+1)+"</b> layers · "+
-    "flow <b>"+fmt(total)+"</b>";
+    "flow <b>"+fmt(total)+"</b>"+
+    (moved?" · moved <b>"+moved+"</b>":"")+
+    (custom?" · custom colors <b>"+custom+"</b>":"");
 }
 
 function loadText(text){
   try{
     graph=buildGraph(parseFlows(text));
+    manualPos={};
+    customColors={};
+    view.ready=false;
+    updateNodeSelector();
     render();
   }catch(err){
     alert("Could not load: "+err.message);
   }
 }
 
-document.getElementById("exBtn").onclick=function(){
-  loadText(EXAMPLE);
-};
+svg.addEventListener("pointerdown",function(e){
+  if(e.target!==svg)return;
+
+  panDrag={
+    x:e.clientX,
+    y:e.clientY,
+    vx:view.x,
+    vy:view.y
+  };
+});
+
+window.addEventListener("pointermove",function(e){
+  if(dragNode && graph){
+    var p=svgPoint(e);
+    var n=graph.nodes[dragNode.id];
+
+    manualPos[n.id]={
+      x:Math.max(-200,Math.min(W+200,p.x-dragNode.dx)),
+      y:Math.max(-200,Math.min(H+200,p.y-dragNode.dy))
+    };
+
+    render();
+    return;
+  }
+
+  if(panDrag){
+    var dx=e.clientX-panDrag.x;
+    var dy=e.clientY-panDrag.y;
+
+    view.x=panDrag.vx-dx*(view.w/W);
+    view.y=panDrag.vy-dy*(view.h/H);
+
+    setViewBox();
+  }
+});
+
+window.addEventListener("pointerup",function(){
+  dragNode=null;
+  panDrag=null;
+});
+
+svg.addEventListener("wheel",function(e){
+  e.preventDefault();
+
+  if(!view.ready)return;
+
+  var p=svgPoint(e);
+  var f=Math.exp(e.deltaY*0.0012);
+  f=Math.max(0.55,Math.min(1.8,f));
+
+  var nw=Math.max(W*0.25,Math.min(W*5,view.w*f));
+  var nh=Math.max(H*0.25,Math.min(H*5,view.h*f));
+  var fx=(p.x-view.x)/view.w;
+  var fy=(p.y-view.y)/view.h;
+
+  view.x=p.x-fx*nw;
+  view.y=p.y-fy*nh;
+  view.w=nw;
+  view.h=nh;
+
+  setViewBox();
+},{passive:false});
+
+document.getElementById("exBtn").onclick=function(){loadText(EXAMPLE);};
 
 document.getElementById("colorSel").onchange=function(){
   colorMode=this.value;
+  render();
+};
+
+document.getElementById("paletteSel").onchange=function(){
+  paletteName=this.value;
   render();
 };
 
@@ -892,17 +939,35 @@ document.getElementById("labelChk").onchange=function(){
   render();
 };
 
+document.getElementById("nodeSel").onchange=syncColorPicker;
+
+document.getElementById("nodeColor").oninput=function(){
+  var id=document.getElementById("nodeSel").value;
+  if(!id)return;
+  customColors[id]=this.value;
+  render();
+};
+
+document.getElementById("resetViewBtn").onclick=function(){
+  resetView();
+};
+
+document.getElementById("resetLayoutBtn").onclick=function(){
+  manualPos={};
+  render();
+};
+
+document.getElementById("resetColorsBtn").onclick=function(){
+  customColors={};
+  render();
+};
+
 document.getElementById("fileInput").onchange=function(){
   var f=this.files[0];
-
   if(!f)return;
 
   var rd=new FileReader();
-
-  rd.onload=function(){
-    loadText(rd.result);
-  };
-
+  rd.onload=function(){loadText(rd.result);};
   rd.readAsText(f);
   this.value="";
 };
@@ -923,7 +988,10 @@ document.getElementById("pasteLoad").onclick=function(){
   sheet.classList.remove("show");
 };
 
-window.addEventListener("resize",render);
+window.addEventListener("resize",function(){
+  view.ready=false;
+  render();
+});
 
 var EXAMPLE=[
   "# Taxa -> protein-family clusters",
