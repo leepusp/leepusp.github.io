@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phylogeny Viewer · LEEP BIOINFO</title>
+<meta name="description" content="Interactive phylogenetic tree viewer — LEEP BIOINFO.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a1422;--panel:#0f1c30;--panel2:#13243c;--line:#1f3252;
+  --text:#e6edf6;--muted:#8195b0;--accent:#3b82f6;--accent2:#60a5fa;--accent3:#38bdf8;
+  --ui:"Space Grotesk",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--ui);
+  display:grid;grid-template-rows:auto auto 1fr;height:100dvh;overflow:hidden;
+}
+header{
+  display:flex;align-items:center;gap:16px;padding:12px 20px;
+  border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0d1b2e,#0a1422);
+}
+.brand{display:flex;align-items:baseline;gap:10px;font-weight:700;letter-spacing:.04em}
+.brand b{color:var(--accent2)}
+.brand span{font-size:.72rem;font-weight:500;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.spacer{flex:1}
+.back{
+  color:var(--muted);text-decoration:none;font-size:.82rem;border:1px solid var(--line);
+  padding:7px 13px;border-radius:8px;transition:.15s;
+}
+.back:hover{color:var(--text);border-color:var(--accent);background:#10233c}
+.toolbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:11px 20px;
+  border-bottom:1px solid var(--line);background:var(--panel);
+}
+.grp{display:flex;align-items:center;gap:8px}
+.lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.btn{
+  border:1px solid var(--line);background:var(--panel2);color:var(--text);
+  font-family:var(--ui);font-weight:600;font-size:.82rem;padding:7px 13px;border-radius:8px;
+  cursor:pointer;transition:.15s;
+}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#2f6fe0}
+.upload{position:relative;overflow:hidden}
+.upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+select,input[type=search]{
+  background:var(--panel2);color:var(--text);border:1px solid var(--line);
+  border-radius:8px;padding:6px 9px;font-family:var(--ui);font-size:.82rem;
+}
+input[type=search]{font-family:var(--mono);width:140px}
+input[type=range]{width:110px;accent-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--muted);cursor:pointer}
+.val{font-family:var(--mono);font-size:.78rem;color:var(--accent3);min-width:1.4em;text-align:center}
+.info{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.info b{color:var(--text);font-weight:500}
+.stage{position:relative;min-height:0;background:#0b1626}
+#cv{display:block;width:100%;height:100%;cursor:grab}
+#cv:active{cursor:grabbing}
+.hint{
+  position:absolute;left:16px;bottom:12px;font-family:var(--mono);font-size:.68rem;
+  color:#46597a;pointer-events:none;
+}
+.tip{
+  position:absolute;pointer-events:none;background:#08111fee;border:1px solid var(--line);
+  border-radius:7px;padding:6px 9px;font-family:var(--mono);font-size:.72rem;color:var(--text);
+  display:none;white-space:nowrap;z-index:5;
+}
+.tip b{color:var(--accent3);font-weight:500}
+.sheet{
+  position:absolute;inset:0;background:#0a1422f2;backdrop-filter:blur(3px);z-index:8;
+  display:none;flex-direction:column;padding:22px;gap:12px;
+}
+.sheet.show{display:flex}
+.sheet h2{margin:0;font-size:1rem}
+.sheet p{margin:0;color:var(--muted);font-size:.82rem}
+.sheet textarea{
+  flex:1;background:#081222;color:var(--text);border:1px solid var(--line);
+  border-radius:10px;font-family:var(--mono);font-size:.82rem;padding:12px;resize:none;
+}
+.sheet .row{display:flex;gap:10px;justify-content:flex-end}
+@media(max-width:760px){
+  header,.toolbar{padding-left:12px;padding-right:12px}
+  .brand{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">LEEP <b>BIOINFO</b> <span>Phylogeny Viewer</span></div>
+  <div class="spacer"></div>
+  <a class="back" href="../index.html">← Portal</a>
+</header>
+
+<div class="toolbar">
+  <div class="grp">
+    <button class="btn primary" id="exBtn">Example</button>
+    <button class="btn upload">Upload Newick<input type="file" id="fileInput" accept=".nwk,.newick,.tree,.tre,.txt"></button>
+    <button class="btn" id="pasteBtn">Paste Newick</button>
+  </div>
+  <div class="grp">
+    <span class="lbl">Layout</span>
+    <select id="layoutSel">
+      <option value="rect">Rectangular</option>
+      <option value="radial">Radial</option>
+      <option value="unrooted">Unrooted</option>
+    </select>
+  </div>
+  <div class="grp">
+    <span class="lbl">Clades</span>
+    <input type="range" id="kRange" min="1" max="8" value="1">
+    <span class="val" id="kVal">1</span>
+  </div>
+  <div class="grp"><label class="chk"><input type="checkbox" id="lenChk" checked> branch lengths</label></div>
+  <div class="grp"><label class="chk"><input type="checkbox" id="labelChk" checked> labels</label></div>
+  <div class="grp"><label class="chk"><input type="checkbox" id="supportChk"> support</label></div>
+  <div class="grp"><input type="search" id="searchBox" placeholder="find taxon…"></div>
+  <div class="grp"><button class="btn" id="resetBtn">Reset view</button></div>
+  <div class="grp spacer"></div>
+  <div class="info" id="info">—</div>
+</div>
+
+<div class="stage">
+  <canvas id="cv"></canvas>
+  <div class="hint">scroll = zoom · drag = pan · click internal node = collapse/expand</div>
+  <div class="tip" id="tip"></div>
+
+  <div class="sheet" id="sheet">
+    <h2>Paste a Newick tree</h2>
+    <p>Standard Newick format. Branch lengths and internal support labels are supported.</p>
+    <textarea id="pasteArea" spellcheck="false" placeholder="((A:0.1,B:0.2)95:0.3,(C:0.1,D:0.4)80:0.2)100:0;"></textarea>
+    <div class="row">
+      <button class="btn" id="pasteCancel">Cancel</button>
+      <button class="btn primary" id="pasteLoad">Load tree</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var cv=document.getElementById("cv"),ctx=cv.getContext("2d"),tip=document.getElementById("tip");
+var DPR=1,W=0,H=0;
+var root=null,tips=[],maxDist=0,maxDepth=0;
+var layout="rect",useLen=true,showLabels=true,showSupport=false,kClades=1,search="";
+var zoom=1,panX=0,panY=0,collapsed=new Set();
+var CLU=["#38bdf8","#34d399","#f59e0b","#a78bfa","#f472b6","#22d3ee","#fb7185","#a3e635"];
+
+function parseNewick(s){
+  s=s.trim();
+  if(!s)throw new Error("Empty Newick.");
+  var i=0,id=0;
+
+  function readName(){
+    var out="";
+    if(s[i]==="'"){
+      i++;
+      while(i<s.length && s[i]!=="'")out+=s[i++];
+      if(s[i]==="'")i++;
+      return out;
+    }
+    while(i<s.length && ",():;".indexOf(s[i])<0)out+=s[i++];
+    return out.trim();
+  }
+
+  function readLen(){
+    if(s[i]!==":")return null;
+    i++;
+    var out="";
+    while(i<s.length && ",():;".indexOf(s[i])<0)out+=s[i++];
+    var v=parseFloat(out);
+    return isFinite(v)?v:null;
+  }
+
+  function node(){
+    var nd={id:id++,children:[],name:"",label:"",length:null,parent:null,collapsed:false,grp:-1};
+
+    if(s[i]==="("){
+      i++;
+      nd.children.push(node());
+      while(s[i]===","){
+        i++;
+        nd.children.push(node());
+      }
+      if(s[i]===")")i++;
+      nd.label=readName();
+      nd.length=readLen();
+    }else{
+      nd.name=readName();
+      nd.length=readLen();
+    }
+
+    return nd;
+  }
+
+  var r=node();
+  return r;
+}
+
+function children(nd){
+  return collapsed.has(nd.id)?[]:nd.children;
+}
+
+function walk(nd,fn){
+  fn(nd);
+  children(nd).forEach(function(c){walk(c,fn)});
+}
+
+function countLeaves(nd){
+  var ch=children(nd);
+  if(!ch.length)return 1;
+  var n=0;
+  ch.forEach(function(c){n+=countLeaves(c)});
+  return n;
+}
+
+function computeStats(){
+  tips=[];
+  maxDist=0;
+  maxDepth=0;
+
+  function rec(nd,parent,depth,dist){
+    nd.parent=parent;
+    nd.depth=depth;
+    nd.dist=dist;
+    nd.leafCount=countLeaves(nd);
+
+    if(depth>maxDepth)maxDepth=depth;
+    if(dist>maxDist)maxDist=dist;
+
+    var ch=children(nd);
+
+    if(!ch.length){
+      nd.tipIndex=tips.length;
+      tips.push(nd);
+      return;
+    }
+
+    ch.sort(function(a,b){return countLeaves(a)-countLeaves(b)});
+    ch.forEach(function(c){rec(c,nd,depth+1,dist+(c.length||0))});
+  }
+
+  rec(root,null,0,0);
+}
+
+function assignGroups(){
+  walk(root,function(nd){nd.grp=-1});
+
+  if(kClades<2)return;
+
+  var groups=[root];
+
+  while(groups.length<kClades){
+    var bi=-1,bn=-1;
+
+    for(var i=0;i<groups.length;i++){
+      var ch=children(groups[i]);
+      if(ch.length && groups[i].leafCount>bn){
+        bn=groups[i].leafCount;
+        bi=i;
+      }
+    }
+
+    if(bi<0)break;
+
+    var nd=groups.splice(bi,1)[0];
+    children(nd).forEach(function(c){groups.push(c)});
+  }
+
+  groups.forEach(function(g,gi){
+    walk(g,function(nd){nd.grp=gi});
+  });
+}
+
+function layoutRect(){
+  function sy(nd){
+    var ch=children(nd);
+    if(!ch.length){
+      nd.py=nd.tipIndex;
+      return nd.py;
+    }
+
+    ch.forEach(sy);
+    nd.py=(ch[0].py+ch[ch.length-1].py)/2;
+    return nd.py;
+  }
+
+  sy(root);
+
+  walk(root,function(nd){
+    nd.px=useLen?nd.dist:nd.depth;
+  });
+}
+
+function layoutRadial(){
+  var n=Math.max(1,tips.length-1);
+
+  function ang(nd){
+    var ch=children(nd);
+
+    if(!ch.length){
+      nd.ang=(nd.tipIndex/n)*Math.PI*2;
+      return nd.ang;
+    }
+
+    ch.forEach(ang);
+    nd.ang=(ch[0].ang+ch[ch.length-1].ang)/2;
+    return nd.ang;
+  }
+
+  ang(root);
+
+  walk(root,function(nd){
+    var r=useLen?nd.dist:nd.depth;
+    nd.px=Math.cos(nd.ang)*r;
+    nd.py=Math.sin(nd.ang)*r;
+  });
+}
+
+function layoutUnrooted(){
+  root.px=0;
+  root.py=0;
+
+  function place(nd,a0,a1){
+    var ch=children(nd);
+    var a=a0;
+
+    ch.forEach(function(c){
+      var span=(a1-a0)*(c.leafCount/Math.max(1,nd.leafCount));
+      var mid=a+span/2;
+      var len=useLen?(c.length||0.05):1;
+
+      c.px=nd.px+Math.cos(mid)*len;
+      c.py=nd.py+Math.sin(mid)*len;
+
+      place(c,a,a+span);
+      a+=span;
+    });
+  }
+
+  place(root,0,Math.PI*2);
+}
+
+function rebuild(){
+  if(!root)return;
+
+  computeStats();
+  assignGroups();
+
+  if(layout==="rect")layoutRect();
+  else if(layout==="radial")layoutRadial();
+  else layoutUnrooted();
+
+  draw();
+  updateInfo();
+}
+
+function color(nd){
+  return nd.grp>=0?CLU[nd.grp%CLU.length]:"#5d7ba8";
+}
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=cv.clientWidth;
+  H=cv.clientHeight;
+  cv.width=W*DPR;
+  cv.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  draw();
+}
+
+window.addEventListener("resize",resize);
+
+function bbox(){
+  var b={x0:1e9,y0:1e9,x1:-1e9,y1:-1e9};
+
+  walk(root,function(nd){
+    if(nd.px<b.x0)b.x0=nd.px;
+    if(nd.py<b.y0)b.y0=nd.py;
+    if(nd.px>b.x1)b.x1=nd.px;
+    if(nd.py>b.y1)b.y1=nd.py;
+  });
+
+  return b;
+}
+
+function transform(){
+  if(layout==="rect"){
+    var ML=34,MR=180,MT=26,MB=26;
+    var mx=useLen?maxDist:maxDepth;
+    var xs=(W-ML-MR)/Math.max(1e-6,mx)*zoom;
+    var ys=(H-MT-MB)/Math.max(1,tips.length-1)*zoom;
+
+    return function(px,py){
+      return [ML+px*xs+panX,MT+py*ys+panY];
+    };
+  }
+
+  var M=80,b=bbox(),bw=(b.x1-b.x0)||1,bh=(b.y1-b.y0)||1;
+  var cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;
+  var sc=Math.min((W-2*M)/bw,(H-2*M)/bh)*zoom;
+
+  return function(px,py){
+    return [W/2+(px-cx)*sc+panX,H/2+(py-cy)*sc+panY];
+  };
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle="#0b1626";
+  ctx.fillRect(0,0,W,H);
+
+  if(!root)return;
+
+  var S=transform();
+
+  ctx.lineCap="round";
+  ctx.lineJoin="round";
+
+  walk(root,function(nd){
+    children(nd).forEach(function(c){
+      var p=S(nd.px,nd.py),q=S(c.px,c.py);
+
+      ctx.strokeStyle=color(c);
+      ctx.lineWidth=1.6;
+      ctx.beginPath();
+
+      if(layout==="rect"){
+        ctx.moveTo(p[0],q[1]);
+        ctx.lineTo(q[0],q[1]);
+        ctx.moveTo(p[0],p[1]);
+        ctx.lineTo(p[0],q[1]);
+      }else{
+        ctx.moveTo(p[0],p[1]);
+        ctx.lineTo(q[0],q[1]);
+      }
+
+      ctx.stroke();
+    });
+  });
+
+  ctx.font="11px 'IBM Plex Mono', monospace";
+
+  walk(root,function(nd){
+    var p=S(nd.px,nd.py);
+    var ch=children(nd);
+    var isTip=!ch.length;
+    var isHit=search && nd.name && nd.name.toLowerCase().indexOf(search)>=0;
+
+    if(isTip){
+      ctx.fillStyle=nd.grp>=0?CLU[nd.grp%CLU.length]:"#9fb3d0";
+      ctx.beginPath();
+      ctx.arc(p[0],p[1],isHit?4:2,0,Math.PI*2);
+      ctx.fill();
+
+      if(isHit){
+        ctx.strokeStyle="#fde047";
+        ctx.lineWidth=1.6;
+        ctx.beginPath();
+        ctx.arc(p[0],p[1],7,0,Math.PI*2);
+        ctx.stroke();
+      }
+
+      if(showLabels)drawLabel(nd,p,nd.name||"",isHit);
+    }else{
+      ctx.fillStyle=collapsed.has(nd.id)?color(nd):"#314765";
+      ctx.beginPath();
+      ctx.arc(p[0],p[1],collapsed.has(nd.id)?4:2,0,Math.PI*2);
+      ctx.fill();
+
+      if(showSupport && nd.label){
+        ctx.fillStyle="#7f93b3";
+        ctx.font="9px 'IBM Plex Mono', monospace";
+        ctx.textAlign="center";
+        ctx.textBaseline="bottom";
+        ctx.fillText(nd.label,p[0],p[1]-4);
+        ctx.font="11px 'IBM Plex Mono', monospace";
+      }
+    }
+  });
+}
+
+function drawLabel(nd,p,text,hit){
+  if(!text)return;
+
+  ctx.fillStyle=hit?"#fde047":(nd.grp>=0?CLU[nd.grp%CLU.length]:"#c4d2e6");
+
+  if(layout==="rect"){
+    ctx.textAlign="left";
+    ctx.textBaseline="middle";
+    ctx.fillText(text,p[0]+7,p[1]);
+  }else{
+    var a=Math.atan2(p[1]-H/2,p[0]-W/2);
+    ctx.save();
+    ctx.translate(p[0],p[1]);
+    ctx.textBaseline="middle";
+
+    if(a>Math.PI/2 || a<-Math.PI/2){
+      ctx.rotate(a+Math.PI);
+      ctx.textAlign="right";
+      ctx.fillText(text,-7,0);
+    }else{
+      ctx.rotate(a);
+      ctx.textAlign="left";
+      ctx.fillText(text,7,0);
+    }
+
+    ctx.restore();
+  }
+}
+
+function updateInfo(){
+  document.getElementById("info").innerHTML=
+    "<b>"+tips.length+"</b> tips · "+
+    (useLen?"max branch depth <b>"+maxDist.toFixed(3)+"</b>":"cladogram")+
+    (kClades>1?" · <b>"+kClades+"</b> clades":"")+
+    (collapsed.size?" · <b>"+collapsed.size+"</b> collapsed":"");
+}
+
+function nearest(e){
+  var rect=cv.getBoundingClientRect();
+  var mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  var S=transform();
+  var best=null,bd=14*14;
+
+  walk(root,function(nd){
+    var p=S(nd.px,nd.py);
+    var d=(p[0]-mx)*(p[0]-mx)+(p[1]-my)*(p[1]-my);
+
+    if(d<bd){
+      bd=d;
+      best=nd;
+    }
+  });
+
+  return best;
+}
+
+cv.addEventListener("wheel",function(e){
+  e.preventDefault();
+  var f=Math.exp(-e.deltaY*0.0012);
+  zoom=Math.max(0.2,Math.min(12,zoom*f));
+  draw();
+},{passive:false});
+
+var drag=null,moved=false;
+
+cv.addEventListener("pointerdown",function(e){
+  drag={x:e.clientX,y:e.clientY,px:panX,py:panY};
+  moved=false;
+  cv.setPointerCapture(e.pointerId);
+});
+
+cv.addEventListener("pointermove",function(e){
+  if(drag){
+    var dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+
+    if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+
+    panX=drag.px+dx;
+    panY=drag.py+dy;
+
+    draw();
+    return;
+  }
+
+  hover(e);
+});
+
+cv.addEventListener("pointerup",function(e){
+  if(drag && !moved){
+    var nd=nearest(e);
+
+    if(nd && nd.children.length){
+      if(collapsed.has(nd.id))collapsed.delete(nd.id);
+      else collapsed.add(nd.id);
+
+      rebuild();
+    }
+  }
+
+  drag=null;
+});
+
+cv.addEventListener("pointerleave",function(){
+  tip.style.display="none";
+});
+
+function hover(e){
+  if(!root)return;
+
+  var nd=nearest(e);
+
+  if(!nd){
+    tip.style.display="none";
+    return;
+  }
+
+  var rect=cv.getBoundingClientRect();
+  var mx=e.clientX-rect.left,my=e.clientY-rect.top;
+
+  if(nd.children.length){
+    tip.innerHTML="internal node · "+nd.leafCount+" tips"+(nd.label?" · support "+nd.label:"")+(collapsed.has(nd.id)?" · collapsed":"");
+  }else{
+    tip.innerHTML="<b>"+(nd.name||"tip")+"</b>"+(nd.length!=null?" · branch "+nd.length:"");
+  }
+
+  tip.style.display="block";
+
+  var tx=mx+14,ty=my+14;
+
+  if(tx+tip.offsetWidth>W)tx=mx-tip.offsetWidth-10;
+
+  tip.style.left=tx+"px";
+  tip.style.top=ty+"px";
+}
+
+function loadTree(text){
+  try{
+    root=parseNewick(text);
+    collapsed=new Set();
+    zoom=1;
+    panX=0;
+    panY=0;
+    rebuild();
+  }catch(err){
+    alert("Could not parse tree: "+err.message);
+  }
+}
+
+document.getElementById("layoutSel").onchange=function(){
+  layout=this.value;
+  zoom=1;
+  panX=0;
+  panY=0;
+  rebuild();
+};
+
+document.getElementById("kRange").oninput=function(){
+  kClades=+this.value;
+  document.getElementById("kVal").textContent=this.value;
+  rebuild();
+};
+
+document.getElementById("lenChk").onchange=function(){
+  useLen=this.checked;
+  rebuild();
+};
+
+document.getElementById("labelChk").onchange=function(){
+  showLabels=this.checked;
+  draw();
+};
+
+document.getElementById("supportChk").onchange=function(){
+  showSupport=this.checked;
+  draw();
+};
+
+document.getElementById("searchBox").oninput=function(){
+  search=this.value.trim().toLowerCase();
+  draw();
+};
+
+document.getElementById("resetBtn").onclick=function(){
+  zoom=1;
+  panX=0;
+  panY=0;
+  draw();
+};
+
+document.getElementById("exBtn").onclick=function(){
+  loadTree(EXAMPLE);
+};
+
+document.getElementById("fileInput").onchange=function(){
+  var f=this.files[0];
+
+  if(!f)return;
+
+  var rd=new FileReader();
+
+  rd.onload=function(){
+    loadTree(rd.result);
+  };
+
+  rd.readAsText(f);
+  this.value="";
+};
+
+var sheet=document.getElementById("sheet");
+
+document.getElementById("pasteBtn").onclick=function(){
+  sheet.classList.add("show");
+  document.getElementById("pasteArea").focus();
+};
+
+document.getElementById("pasteCancel").onclick=function(){
+  sheet.classList.remove("show");
+};
+
+document.getElementById("pasteLoad").onclick=function(){
+  loadTree(document.getElementById("pasteArea").value);
+  sheet.classList.remove("show");
+};
+
+var EXAMPLE="(((A_aer:0.12,B_aer:0.10)98:0.20,C_aer:0.25)90:0.15,((D_mar:0.18,E_mar:0.22)95:0.30,(F_mar:0.20,G_mar:0.24)88:0.18)80:0.12,(((H_ter:0.14,I_ter:0.16)99:0.25,J_ter:0.30)85:0.20,((K_hal:0.20,L_hal:0.18)92:0.28,(M_hal:0.22,N_hal:0.24)90:0.26)78:0.15)82:0.10)100:0.0;";
+
+resize();
+loadTree(EXAMPLE);
+})();
+</script>
+</body>
+</html>
