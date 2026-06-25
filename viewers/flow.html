@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Flow Viewer · LEEP BIOINFO</title>
+<meta name="description" content="Interactive Sankey flow viewer for comparative-genomics and bioinformatics data — LEEP BIOINFO.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#0a1422;
+  --panel:#0f1c30;
+  --panel2:#13243c;
+  --line:#1f3252;
+  --text:#e6edf6;
+  --muted:#8195b0;
+  --accent:#3b82f6;
+  --accent2:#60a5fa;
+  --accent3:#38bdf8;
+  --ui:"Space Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+
+*{box-sizing:border-box}
+
+html,body{
+  height:100%;
+  margin:0;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--ui);
+  display:grid;
+  grid-template-rows:auto auto 1fr;
+  height:100dvh;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+header{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:12px 20px;
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0d1b2e,#0a1422);
+}
+
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+
+.brand b{color:var(--accent2)}
+
+.brand span{
+  font-size:.72rem;
+  font-weight:500;
+  color:var(--muted);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.spacer{flex:1}
+
+.back{
+  color:var(--muted);
+  text-decoration:none;
+  font-size:.82rem;
+  border:1px solid var(--line);
+  padding:7px 13px;
+  border-radius:8px;
+  transition:.15s;
+}
+
+.back:hover{
+  color:var(--text);
+  border-color:var(--accent);
+  background:#10233c;
+}
+
+.toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px 16px;
+  padding:11px 20px;
+  border-bottom:1px solid var(--line);
+  background:var(--panel);
+}
+
+.grp{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.lbl{
+  font-family:var(--mono);
+  font-size:.66rem;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.btn{
+  border:1px solid var(--line);
+  background:var(--panel2);
+  color:var(--text);
+  font-family:var(--ui);
+  font-weight:600;
+  font-size:.82rem;
+  padding:7px 13px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:.15s;
+}
+
+.btn:hover{border-color:var(--accent)}
+
+.btn.primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+
+.btn.primary:hover{background:#2f6fe0}
+
+.upload{
+  position:relative;
+  overflow:hidden;
+}
+
+.upload input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+}
+
+select{
+  background:var(--panel2);
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:6px 9px;
+  font-family:var(--ui);
+  font-size:.82rem;
+}
+
+input[type=range]{
+  width:108px;
+  accent-color:var(--accent);
+}
+
+.chk{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:.82rem;
+  color:var(--muted);
+  cursor:pointer;
+}
+
+.info{
+  font-family:var(--mono);
+  font-size:.74rem;
+  color:var(--muted);
+}
+
+.info b{
+  color:var(--text);
+  font-weight:500;
+}
+
+.stage{
+  position:relative;
+  min-height:0;
+  background:#0b1626;
+}
+
+#svg{
+  display:block;
+  width:100%;
+  height:100%;
+}
+
+.link{
+  fill-opacity:.32;
+  transition:fill-opacity .12s;
+  cursor:pointer;
+}
+
+.link.dim{fill-opacity:.07}
+.link.hot{fill-opacity:.72}
+
+.node rect{
+  cursor:pointer;
+  stroke:#0b1626;
+  stroke-width:.6;
+}
+
+.node text{
+  font-family:var(--mono);
+  font-size:11px;
+  fill:#c4d2e6;
+  pointer-events:none;
+}
+
+.node.dim{opacity:.25}
+
+.tip{
+  position:absolute;
+  pointer-events:none;
+  background:#08111fee;
+  border:1px solid var(--line);
+  border-radius:7px;
+  padding:6px 9px;
+  font-family:var(--mono);
+  font-size:.72rem;
+  color:var(--text);
+  display:none;
+  white-space:nowrap;
+  z-index:5;
+}
+
+.tip b{
+  color:var(--accent3);
+  font-weight:500;
+}
+
+.colbar{
+  position:absolute;
+  left:16px;
+  bottom:12px;
+  font-family:var(--mono);
+  font-size:.68rem;
+  color:#46597a;
+}
+
+.sheet{
+  position:absolute;
+  inset:0;
+  background:#0a1422f2;
+  backdrop-filter:blur(3px);
+  z-index:8;
+  display:none;
+  flex-direction:column;
+  padding:22px;
+  gap:12px;
+}
+
+.sheet.show{display:flex}
+
+.sheet h2{
+  margin:0;
+  font-size:1rem;
+}
+
+.sheet p{
+  margin:0;
+  color:var(--muted);
+  font-size:.82rem;
+}
+
+.sheet textarea{
+  flex:1;
+  background:#081222;
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:10px;
+  font-family:var(--mono);
+  font-size:.82rem;
+  padding:12px;
+  resize:none;
+}
+
+.sheet .row{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+}
+
+@media(max-width:760px){
+  header,.toolbar{
+    padding-left:12px;
+    padding-right:12px;
+  }
+
+  .brand{
+    flex-wrap:wrap;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">LEEP <b>BIOINFO</b> <span>Data Flow Viewer</span></div>
+  <div class="spacer"></div>
+  <a class="back" href="../index.html">← Portal</a>
+</header>
+
+<div class="toolbar">
+  <div class="grp">
+    <button class="btn primary" id="exBtn">Example</button>
+    <button class="btn upload">Upload table<input type="file" id="fileInput" accept=".tsv,.csv,.txt"></button>
+    <button class="btn" id="pasteBtn">Paste table</button>
+  </div>
+
+  <div class="grp">
+    <span class="lbl">Color by</span>
+    <select id="colorSel">
+      <option value="source">Source</option>
+      <option value="target">Target</option>
+    </select>
+  </div>
+
+  <div class="grp">
+    <span class="lbl">Spacing</span>
+    <input type="range" id="padRange" min="4" max="40" value="14">
+  </div>
+
+  <div class="grp">
+    <label class="chk"><input type="checkbox" id="labelChk" checked> labels</label>
+  </div>
+
+  <div class="grp spacer"></div>
+  <div class="info" id="info">—</div>
+</div>
+
+<div class="stage">
+  <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="tip" id="tip"></div>
+
+  <div class="colbar">
+    flow table: <b style="color:#8195b0">source ⇥ target ⇥ value</b> · one link per line
+  </div>
+
+  <div class="sheet" id="sheet">
+    <h2>Paste a flow table</h2>
+    <p>
+      One link per line:
+      <b>source ⇥ target ⇥ value</b>.
+      Separators accepted: tab, comma or semicolon. Lines starting with # are ignored.
+    </p>
+    <textarea id="pasteArea" spellcheck="false" placeholder="Taxon&#9;Protein_family&#9;38&#10;Protein_family&#9;Functional_category&#9;50"></textarea>
+    <div class="row">
+      <button class="btn" id="pasteCancel">Cancel</button>
+      <button class="btn primary" id="pasteLoad">Load flows</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var SVGNS="http://www.w3.org/2000/svg";
+var svg=document.getElementById("svg");
+var tip=document.getElementById("tip");
+var stage=svg.parentNode;
+
+var W=0,H=0;
+var graph=null;
+var colorMode="source";
+var padN=14;
+var showLabels=true;
+
+var CLU=[
+  "#38bdf8",
+  "#34d399",
+  "#f59e0b",
+  "#a78bfa",
+  "#f472b6",
+  "#22d3ee",
+  "#fb7185",
+  "#a3e635"
+];
+
+function parseFlows(text){
+  var links=[];
+
+  text.split(/\r?\n/).forEach(function(line){
+    line=line.trim();
+
+    if(!line || line[0]==="#")return;
+
+    var p=line.split(/\t|,|;/).map(function(s){
+      return s.trim();
+    });
+
+    if(p.length<3)return;
+
+    var v=parseFloat(p[2]);
+
+    if(!(v>0))return;
+
+    links.push({
+      s:p[0],
+      t:p[1],
+      v:v
+    });
+  });
+
+  if(!links.length)throw new Error("No 'source, target, value' rows found.");
+
+  return links;
+}
+
+function buildGraph(links){
+  var nodes={};
+  var order=[];
+
+  function get(id){
+    if(!nodes[id]){
+      nodes[id]={
+        id:id,
+        inL:[],
+        outL:[],
+        layer:0,
+        val:0
+      };
+
+      order.push(id);
+    }
+
+    return nodes[id];
+  }
+
+  links.forEach(function(l){
+    l.S=get(l.s);
+    l.T=get(l.t);
+    l.S.outL.push(l);
+    l.T.inL.push(l);
+  });
+
+  var visiting={};
+  var visited={};
+
+  function layerOf(n){
+    if(visited[n.id])return n.layer;
+    if(visiting[n.id])return n.layer;
+
+    visiting[n.id]=true;
+
+    if(!n.inL.length){
+      n.layer=0;
+    }else{
+      var m=0;
+
+      n.inL.forEach(function(l){
+        var ll=layerOf(l.S)+1;
+
+        if(ll>m)m=ll;
+      });
+
+      n.layer=m;
+    }
+
+    visiting[n.id]=false;
+    visited[n.id]=true;
+
+    return n.layer;
+  }
+
+  order.forEach(function(id){
+    layerOf(nodes[id]);
+  });
+
+  order.forEach(function(id){
+    var n=nodes[id];
+    var si=n.inL.reduce(function(a,l){return a+l.v;},0);
+    var so=n.outL.reduce(function(a,l){return a+l.v;},0);
+
+    n.val=Math.max(si,so);
+  });
+
+  var maxLayer=0;
+
+  order.forEach(function(id){
+    if(nodes[id].layer>maxLayer)maxLayer=nodes[id].layer;
+  });
+
+  return {
+    nodes:nodes,
+    order:order,
+    links:links,
+    maxLayer:maxLayer
+  };
+}
+
+function layout(){
+  var nodeW=15;
+  var ML=14,MR=14,MT=18,MB=18;
+
+  var cols=[];
+
+  for(var L=0;L<=graph.maxLayer;L++)cols.push([]);
+
+  graph.order.forEach(function(id){
+    cols[graph.nodes[id].layer].push(graph.nodes[id]);
+  });
+
+  var colSum=cols.map(function(c){
+    return c.reduce(function(a,n){return a+n.val;},0);
+  });
+
+  var maxCol=Math.max.apply(null,colSum)||1;
+
+  var maxPad=Math.max.apply(null,cols.map(function(c){
+    return Math.max(0,c.length-1)*padN;
+  }));
+
+  var scale=Math.max(0.0001,(H-MT-MB-maxPad)/maxCol);
+  var innerW=W-ML-MR-nodeW;
+  var dx=graph.maxLayer>0 ? innerW/graph.maxLayer : 0;
+
+  cols.forEach(function(col,L){
+    col.forEach(function(n){
+      n.x=ML+L*dx;
+      n.h=Math.max(1.5,n.val*scale);
+    });
+  });
+
+  cols.forEach(function(col){
+    var y=MT;
+
+    col.forEach(function(n){
+      n.y=y;
+      y+=n.h+padN;
+    });
+  });
+
+  function relaxLeft(){
+    cols.forEach(function(col){
+      col.forEach(function(n){
+        if(n.inL.length){
+          var w=0,s=0;
+
+          n.inL.forEach(function(l){
+            var c=l.S.y+l.S.h/2;
+            w+=l.v;
+            s+=c*l.v;
+          });
+
+          n.y=s/w-n.h/2;
+        }
+      });
+    });
+  }
+
+  function relaxRight(){
+    for(var L=graph.maxLayer;L>=0;L--){
+      cols[L].forEach(function(n){
+        if(n.outL.length){
+          var w=0,s=0;
+
+          n.outL.forEach(function(l){
+            var c=l.T.y+l.T.h/2;
+            w+=l.v;
+            s+=c*l.v;
+          });
+
+          n.y=s/w-n.h/2;
+        }
+      });
+    }
+  }
+
+  function resolve(){
+    cols.forEach(function(col){
+      col.sort(function(a,b){return a.y-b.y});
+
+      var y=MT;
+
+      col.forEach(function(n){
+        if(n.y<y)n.y=y;
+        y=n.y+n.h+padN;
+      });
+
+      var over=y-padN-(H-MB);
+
+      if(over>0){
+        y=H-MB;
+
+        for(var i=col.length-1;i>=0;i--){
+          var n=col[i];
+
+          if(n.y+n.h>y)n.y=y-n.h;
+
+          y=n.y-padN;
+        }
+      }
+    });
+  }
+
+  for(var it=0;it<10;it++){
+    relaxRight();
+    resolve();
+    relaxLeft();
+    resolve();
+  }
+
+  graph.order.forEach(function(id){
+    var n=graph.nodes[id];
+
+    n.outL.sort(function(a,b){return a.T.y-b.T.y});
+
+    var oy=n.y;
+
+    n.outL.forEach(function(l){
+      l.sy0=oy;
+      l.w=Math.max(0.7,l.v*scale);
+      oy+=l.w;
+    });
+
+    n.inL.sort(function(a,b){return a.S.y-b.S.y});
+
+    var iy=n.y;
+
+    n.inL.forEach(function(l){
+      l.ty0=iy;
+      iy+=Math.max(0.7,l.v*scale);
+    });
+  });
+
+  graph.nodeW=nodeW;
+}
+
+function assignColors(){
+  var byLayer=graph.order.slice().sort(function(a,b){
+    return graph.nodes[a].layer-graph.nodes[b].layer;
+  });
+
+  if(colorMode==="source"){
+    var i=0;
+
+    byLayer.forEach(function(id){
+      var n=graph.nodes[id];
+
+      if(n.layer===0){
+        n.color=CLU[i++%CLU.length];
+      }else{
+        var big=n.inL.slice().sort(function(a,b){return b.v-a.v})[0];
+        n.color=big?big.S.color:"#5773a0";
+      }
+    });
+  }else{
+    var j=0;
+
+    byLayer.slice().reverse().forEach(function(id){
+      var n=graph.nodes[id];
+
+      if(n.layer===graph.maxLayer){
+        n.color=CLU[j++%CLU.length];
+      }else{
+        var big=n.outL.slice().sort(function(a,b){return b.v-a.v})[0];
+        n.color=big?big.T.color:"#5773a0";
+      }
+    });
+  }
+
+  graph.links.forEach(function(l){
+    l.color=colorMode==="source"?l.S.color:l.T.color;
+  });
+}
+
+function el(tag,attrs){
+  var e=document.createElementNS(SVGNS,tag);
+
+  for(var k in attrs){
+    e.setAttribute(k,attrs[k]);
+  }
+
+  return e;
+}
+
+function ribbon(l){
+  var xs=l.S.x+graph.nodeW;
+  var xt=l.T.x;
+  var xm=(xs+xt)/2;
+  var a0=l.sy0;
+  var b0=l.ty0;
+  var w=l.w;
+
+  return "M"+xs+","+a0+
+    "C"+xm+","+a0+" "+xm+","+b0+" "+xt+","+b0+
+    "L"+xt+","+(b0+w)+
+    "C"+xm+","+(b0+w)+" "+xm+","+(a0+w)+" "+xs+","+(a0+w)+"Z";
+}
+
+function render(){
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+
+  W=svg.clientWidth;
+  H=svg.clientHeight;
+
+  if(!graph || W<10 || H<10)return;
+
+  svg.setAttribute("viewBox","0 0 "+W+" "+H);
+
+  layout();
+  assignColors();
+
+  var gLinks=el("g",{});
+  var gNodes=el("g",{});
+
+  svg.appendChild(gLinks);
+  svg.appendChild(gNodes);
+
+  graph.links.slice().sort(function(a,b){
+    return b.w-a.w;
+  }).forEach(function(l){
+    var p=el("path",{
+      d:ribbon(l),
+      fill:l.color,
+      class:"link"
+    });
+
+    p.__link=l;
+    gLinks.appendChild(p);
+
+    p.addEventListener("mouseenter",function(e){
+      focusLink(l);
+      showTip(e,"<b>"+l.s+"</b> → <b>"+l.t+"</b> · "+fmt(l.v));
+    });
+
+    p.addEventListener("mousemove",function(e){
+      moveTip(e);
+    });
+
+    p.addEventListener("mouseleave",clearFocus);
+  });
+
+  graph.order.forEach(function(id){
+    var n=graph.nodes[id];
+    var grp=el("g",{class:"node"});
+
+    n.__g=grp;
+    gNodes.appendChild(grp);
+
+    var rect=el("rect",{
+      x:n.x,
+      y:n.y,
+      width:graph.nodeW,
+      height:n.h,
+      fill:n.color,
+      rx:2
+    });
+
+    grp.appendChild(rect);
+
+    if(showLabels){
+      var left=n.x<W/2;
+
+      var t=el("text",{
+        x:left?n.x+graph.nodeW+5:n.x-5,
+        y:n.y+n.h/2,
+        "text-anchor":left?"start":"end",
+        "dominant-baseline":"middle"
+      });
+
+      t.textContent=n.id;
+      grp.appendChild(t);
+    }
+
+    grp.addEventListener("mouseenter",function(e){
+      focusNode(n);
+      showTip(e,"<b>"+n.id+"</b> · "+fmt(n.val)+" · layer "+(n.layer+1));
+    });
+
+    grp.addEventListener("mousemove",function(e){
+      moveTip(e);
+    });
+
+    grp.addEventListener("mouseleave",clearFocus);
+  });
+
+  updateInfo();
+}
+
+function fmt(v){
+  return Math.round(v*100)/100;
+}
+
+function focusLink(l){
+  svg.querySelectorAll(".link").forEach(function(p){
+    p.classList.add("dim");
+    p.classList.remove("hot");
+
+    if(p.__link===l){
+      p.classList.remove("dim");
+      p.classList.add("hot");
+    }
+  });
+}
+
+function focusNode(n){
+  var set=new Set();
+
+  n.inL.concat(n.outL).forEach(function(l){
+    set.add(l);
+  });
+
+  svg.querySelectorAll(".link").forEach(function(p){
+    if(set.has(p.__link)){
+      p.classList.remove("dim");
+      p.classList.add("hot");
+    }else{
+      p.classList.add("dim");
+      p.classList.remove("hot");
+    }
+  });
+}
+
+function clearFocus(){
+  svg.querySelectorAll(".link").forEach(function(p){
+    p.classList.remove("dim");
+    p.classList.remove("hot");
+  });
+
+  tip.style.display="none";
+}
+
+function showTip(e,html){
+  tip.innerHTML=html;
+  tip.style.display="block";
+  moveTip(e);
+}
+
+function moveTip(e){
+  var r=stage.getBoundingClientRect();
+  var mx=e.clientX-r.left;
+  var my=e.clientY-r.top;
+  var tx=mx+14;
+  var ty=my+14;
+
+  if(tx+tip.offsetWidth>r.width)tx=mx-tip.offsetWidth-10;
+
+  tip.style.left=tx+"px";
+  tip.style.top=ty+"px";
+}
+
+function updateInfo(){
+  var total=graph.links.reduce(function(a,l){
+    return a+l.v;
+  },0);
+
+  document.getElementById("info").innerHTML=
+    "<b>"+graph.order.length+"</b> nodes · "+
+    "<b>"+graph.links.length+"</b> links · "+
+    "<b>"+(graph.maxLayer+1)+"</b> layers · "+
+    "flow <b>"+fmt(total)+"</b>";
+}
+
+function loadText(text){
+  try{
+    graph=buildGraph(parseFlows(text));
+    render();
+  }catch(err){
+    alert("Could not load: "+err.message);
+  }
+}
+
+document.getElementById("exBtn").onclick=function(){
+  loadText(EXAMPLE);
+};
+
+document.getElementById("colorSel").onchange=function(){
+  colorMode=this.value;
+  render();
+};
+
+document.getElementById("padRange").oninput=function(){
+  padN=+this.value;
+  render();
+};
+
+document.getElementById("labelChk").onchange=function(){
+  showLabels=this.checked;
+  render();
+};
+
+document.getElementById("fileInput").onchange=function(){
+  var f=this.files[0];
+
+  if(!f)return;
+
+  var rd=new FileReader();
+
+  rd.onload=function(){
+    loadText(rd.result);
+  };
+
+  rd.readAsText(f);
+  this.value="";
+};
+
+var sheet=document.getElementById("sheet");
+
+document.getElementById("pasteBtn").onclick=function(){
+  sheet.classList.add("show");
+  document.getElementById("pasteArea").focus();
+};
+
+document.getElementById("pasteCancel").onclick=function(){
+  sheet.classList.remove("show");
+};
+
+document.getElementById("pasteLoad").onclick=function(){
+  loadText(document.getElementById("pasteArea").value);
+  sheet.classList.remove("show");
+};
+
+window.addEventListener("resize",render);
+
+var EXAMPLE=[
+  "# Taxa -> protein-family clusters",
+  "Bacillales\tFAM_kinase\t38",
+  "Bacillales\tFAM_transport\t26",
+  "Bacillales\tFAM_secretion\t14",
+  "Enterobacterales\tFAM_kinase\t22",
+  "Enterobacterales\tFAM_secretion\t31",
+  "Enterobacterales\tFAM_mobile\t19",
+  "Pseudomonadales\tFAM_transport\t28",
+  "Pseudomonadales\tFAM_secretion\t24",
+  "Pseudomonadales\tFAM_oxidoreductase\t20",
+  "Rhizobiales\tFAM_kinase\t16",
+  "Rhizobiales\tFAM_oxidoreductase\t30",
+  "Rhizobiales\tFAM_mobile\t12",
+  "# Clusters -> functional category",
+  "FAM_kinase\tSignaling\t50",
+  "FAM_kinase\tMetabolism\t26",
+  "FAM_transport\tTransport\t54",
+  "FAM_secretion\tCellular_processes\t69",
+  "FAM_mobile\tMobile_elements\t31",
+  "FAM_oxidoreductase\tMetabolism\t50"
+].join("\n");
+
+loadText(EXAMPLE);
+})();
+</script>
+
+</body>
+</html>
