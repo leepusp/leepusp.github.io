@@ -1,150 +1,257 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3D Protein Viewer · LEEP BIOINFO</title>
-<meta name="description" content="Interactive 3D protein structure viewer — LEEP BIOINFO, University of São Paulo." />
+<meta name="description" content="Interactive 3D protein structure viewer with multi-model loading and pLDDT/B-factor coloring — LEEP BIOINFO.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/ngl@2.3.1/dist/ngl.js"></script>
+
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+
 <style>
-  :root{
-    --bg:#0a1422; --panel:#0f1c30; --panel-2:#13243c; --line:#1f3252;
-    --text:#e6edf6; --muted:#8195b0; --accent:#3b82f6; --accent-2:#60a5fa;
-    --good:#34d399; --bad:#f87171;
-    --ui:"Space Grotesk", system-ui, sans-serif;
-    --mono:"IBM Plex Mono", ui-monospace, monospace;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{
-    background:var(--bg); color:var(--text);
-    font-family:var(--ui); -webkit-font-smoothing:antialiased;
-    display:grid; grid-template-rows:auto 1fr; height:100dvh; overflow:hidden;
-  }
-
-  /* ---- top bar ---- */
-  header{
-    display:flex; align-items:center; gap:18px;
-    padding:12px 20px; border-bottom:1px solid var(--line);
-    background:linear-gradient(180deg,#0d1b2e,#0a1422);
-  }
-  .brand{display:flex; align-items:baseline; gap:10px; font-weight:700; letter-spacing:.04em}
-  .brand b{color:var(--accent-2)}
-  .brand span{font-size:.72rem; font-weight:500; color:var(--muted); letter-spacing:.08em; text-transform:uppercase}
-  header .spacer{flex:1}
-  .back{
-    color:var(--muted); text-decoration:none; font-size:.82rem;
-    border:1px solid var(--line); padding:7px 13px; border-radius:8px;
-    transition:.15s;
-  }
-  .back:hover{color:var(--text); border-color:var(--accent); background:#10233c}
-
-  /* ---- layout ---- */
-  main{display:grid; grid-template-columns:320px 1fr; min-height:0}
-  .rail{
-    background:var(--panel); border-right:1px solid var(--line);
-    padding:18px; overflow-y:auto; display:flex; flex-direction:column; gap:22px;
-  }
-  .stage-wrap{position:relative; min-width:0; min-height:0; background:radial-gradient(120% 120% at 50% 0%, #0e1f36 0%, #070f1c 70%)}
-  #viewport{width:100%; height:100%}
-
-  .group h2{
-    font-size:.7rem; letter-spacing:.14em; text-transform:uppercase;
-    color:var(--muted); margin:0 0 11px; font-weight:600;
-  }
-
-  /* PDB input */
-  .pdb-row{display:flex; gap:8px}
-  .pdb-row input{
-    flex:1; min-width:0; background:var(--panel-2); border:1px solid var(--line);
-    color:var(--text); font-family:var(--mono); font-size:.95rem; letter-spacing:.06em;
-    padding:9px 11px; border-radius:8px; text-transform:uppercase;
-  }
-  .pdb-row input:focus{outline:none; border-color:var(--accent)}
-  .pdb-row input::placeholder{color:#46597a; letter-spacing:.04em}
-  .btn{
-    border:0; cursor:pointer; font-family:var(--ui); font-weight:600;
-    background:var(--accent); color:#fff; padding:9px 14px; border-radius:8px;
-    font-size:.85rem; transition:.15s;
-  }
-  .btn:hover{background:#2f6fe0}
-  .btn.block{width:100%; margin-top:8px}
-  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--muted)}
-  .btn.ghost:hover{color:var(--text); border-color:var(--accent)}
-
-  .upload{
-    display:flex; align-items:center; justify-content:center; gap:7px;
-    margin-top:8px; font-size:.78rem; color:var(--muted); cursor:pointer;
-    border:1px dashed var(--line); border-radius:8px; padding:8px; transition:.15s;
-  }
-  .upload:hover{border-color:var(--accent); color:var(--text)}
-  .upload input{display:none}
-
-  /* examples */
-  .examples{display:flex; flex-direction:column; gap:7px}
-  .ex{
-    text-align:left; background:var(--panel-2); border:1px solid var(--line);
-    border-radius:8px; padding:9px 11px; cursor:pointer; color:var(--text);
-    font-family:var(--ui); transition:.15s; display:flex; align-items:baseline; gap:9px;
-  }
-  .ex:hover{border-color:var(--accent); background:#16294230}
-  .ex code{font-family:var(--mono); color:var(--accent-2); font-size:.8rem}
-  .ex small{color:var(--muted); font-size:.74rem}
-
-  /* selects / chips */
-  .chips{display:flex; flex-wrap:wrap; gap:6px}
-  .chip{
-    background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
-    border-radius:7px; padding:6px 10px; font-size:.78rem; cursor:pointer;
-    font-family:var(--ui); transition:.12s;
-  }
-  .chip:hover{color:var(--text)}
-  .chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
-
-  .toggles{display:flex; gap:8px}
-  .toggles .btn.ghost{flex:1}
-
-  /* data readout */
-  .readout{
-    font-family:var(--mono); font-size:.8rem; background:#081222;
-    border:1px solid var(--line); border-radius:10px; padding:13px 14px;
-    line-height:1.85;
-  }
-  .readout .ttl{color:var(--accent-2); font-weight:500; word-break:break-word; margin-bottom:6px}
-  .readout .kv{display:flex; justify-content:space-between; color:var(--muted)}
-  .readout .kv b{color:var(--text); font-weight:500}
-  .readout .status{margin-top:8px; font-size:.74rem}
-  .status.load{color:var(--accent-2)} .status.ok{color:var(--good)} .status.err{color:var(--bad)}
-
-  /* loading overlay */
-  .overlay{
-    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
-    flex-direction:column; gap:14px; background:#070f1ccc; backdrop-filter:blur(2px);
-    color:var(--muted); font-family:var(--mono); font-size:.82rem; z-index:5;
-  }
-  .overlay.show{display:flex}
-  .spin{
-    width:34px; height:34px; border:3px solid var(--line);
-    border-top-color:var(--accent); border-radius:50%; animation:r .8s linear infinite;
-  }
-  @keyframes r{to{transform:rotate(360deg)}}
-
-  footer{font-size:.7rem; color:#54678a; line-height:1.5; padding-top:4px}
-
-  /* responsive */
-  @media (max-width:760px){
-    body{grid-template-rows:auto auto 1fr}
-    main{grid-template-columns:1fr; grid-template-rows:1fr; display:contents}
-    .stage-wrap{order:2; height:48dvh}
-    .rail{order:3; border-right:0; border-top:1px solid var(--line); max-height:none; overflow:visible}
-    header{flex-wrap:wrap}
-  }
-  @media (prefers-reduced-motion:reduce){ .spin{animation:none} }
+:root{
+  --bg:#0a1422;
+  --panel:#0f1c30;
+  --panel2:#13243c;
+  --line:#1f3252;
+  --text:#e6edf6;
+  --muted:#8195b0;
+  --accent:#3b82f6;
+  --accent2:#60a5fa;
+  --accent3:#38bdf8;
+  --ui:"Space Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--ui);
+  display:grid;
+  grid-template-rows:auto 1fr;
+  height:100dvh;
+  overflow:hidden;
+}
+header{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:12px 20px;
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0d1b2e,#0a1422);
+}
+.brand{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+.brand b{color:var(--accent2)}
+.brand span{
+  font-size:.72rem;
+  color:var(--muted);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.spacer{flex:1}
+.back{
+  color:var(--muted);
+  text-decoration:none;
+  font-size:.82rem;
+  border:1px solid var(--line);
+  padding:7px 13px;
+  border-radius:8px;
+  transition:.15s;
+}
+.back:hover{
+  color:var(--text);
+  border-color:var(--accent);
+  background:#10233c;
+}
+.app{
+  min-height:0;
+  display:grid;
+  grid-template-columns:330px 1fr;
+}
+.side{
+  min-height:0;
+  overflow:auto;
+  background:var(--panel);
+  border-right:1px solid var(--line);
+  padding:18px;
+}
+.stage{
+  position:relative;
+  min-height:0;
+  background:#07101d;
+}
+#viewer{
+  position:absolute;
+  inset:0;
+}
+.section{
+  margin-bottom:22px;
+}
+h2{
+  font-size:.74rem;
+  font-family:var(--mono);
+  color:#8ea3bf;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  margin:0 0 10px;
+}
+.row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+input[type=text],select{
+  width:100%;
+  background:var(--panel2);
+  color:var(--text);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:9px 10px;
+  font-family:var(--mono);
+  font-size:.82rem;
+}
+input[type=color]{
+  width:42px;
+  min-width:42px;
+  height:36px;
+  background:var(--panel2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:2px;
+}
+.btn{
+  border:1px solid var(--line);
+  background:var(--panel2);
+  color:var(--text);
+  font-family:var(--ui);
+  font-weight:600;
+  font-size:.82rem;
+  padding:9px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  transition:.15s;
+  white-space:nowrap;
+}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+.btn.primary:hover{background:#2f6fe0}
+.btn.full{width:100%}
+.upload{
+  position:relative;
+  overflow:hidden;
+}
+.upload input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+}
+.grid2{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.status{
+  font-family:var(--mono);
+  font-size:.72rem;
+  color:var(--muted);
+  line-height:1.45;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#0b182a;
+}
+.status b{color:var(--text);font-weight:500}
+.list{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.item{
+  font-family:var(--mono);
+  font-size:.72rem;
+  color:#c5d4e8;
+  background:#0b182a;
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:8px 9px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.legend{
+  display:grid;
+  grid-template-columns:18px 1fr;
+  gap:6px 8px;
+  align-items:center;
+  font-family:var(--mono);
+  font-size:.70rem;
+  color:var(--muted);
+}
+.sw{
+  width:18px;
+  height:10px;
+  border-radius:999px;
+}
+.note{
+  font-family:var(--mono);
+  font-size:.68rem;
+  color:#64799a;
+  line-height:1.55;
+}
+.warn{
+  position:absolute;
+  inset:0;
+  display:none;
+  place-items:center;
+  padding:28px;
+  text-align:center;
+  background:#07101d;
+  z-index:5;
+}
+.warn.show{display:grid}
+.warnbox{
+  max-width:720px;
+  border:1px solid var(--line);
+  background:#0d1b2e;
+  border-radius:14px;
+  padding:24px;
+}
+.warnbox h1{
+  margin:0 0 10px;
+  font-size:1.25rem;
+}
+.warnbox p{
+  color:#b9c8db;
+  line-height:1.6;
+}
+.warnbox code{
+  font-family:var(--mono);
+  color:var(--accent3);
+}
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .side{max-height:44dvh;border-right:0;border-bottom:1px solid var(--line)}
+}
 </style>
 </head>
+
 <body>
 
 <header>
@@ -153,209 +260,414 @@
   <a class="back" href="../index.html">← Portal</a>
 </header>
 
-<main>
-  <!-- control rail -->
-  <aside class="rail">
-
-    <div class="group">
-      <h2>Load structure</h2>
-      <div class="pdb-row">
-        <input id="pdbInput" placeholder="PDB ID — e.g. 1UBQ" maxlength="8" autocomplete="off" />
-        <button class="btn" id="loadBtn">Load</button>
+<div class="app">
+  <aside class="side">
+    <div class="section">
+      <h2>Load structures</h2>
+      <div class="row">
+        <input id="pdbInput" type="text" placeholder="PDB IDs, e.g. 1UBQ, 1LYZ, 4HHB">
+        <button class="btn primary" id="loadPdbBtn">Load</button>
       </div>
-      <label class="upload">
-        <input type="file" id="fileInput" accept=".pdb,.cif,.ent,.mmcif,.pdb1" />
-        ⤓ or upload a local .pdb / .cif file
-      </label>
+      <div class="row">
+        <button class="btn upload full">Upload PDB/mmCIF files
+          <input type="file" id="fileInput" accept=".pdb,.ent,.cif,.mmcif,.txt" multiple>
+        </button>
+      </div>
+      <div class="grid2">
+        <button class="btn" id="clearBtn">Clear</button>
+        <button class="btn" id="recenterBtn">Recenter</button>
+      </div>
     </div>
 
-    <div class="group">
-      <h2>Examples from our work</h2>
-      <div class="examples" id="examples"></div>
+    <div class="section">
+      <h2>Examples</h2>
+      <div class="grid2">
+        <button class="btn ex" data-pdb="1UBQ">1UBQ</button>
+        <button class="btn ex" data-pdb="1LYZ">1LYZ</button>
+        <button class="btn ex" data-pdb="4HHB">4HHB</button>
+        <button class="btn ex" data-pdb="6LU7">6LU7</button>
+      </div>
     </div>
 
-    <div class="group">
+    <div class="section">
       <h2>Representation</h2>
-      <div class="chips" id="reprChips"></div>
+      <select id="repSel">
+        <option value="cartoon">Cartoon</option>
+        <option value="stick">Stick</option>
+        <option value="sphere">Sphere</option>
+        <option value="line">Line</option>
+      </select>
     </div>
 
-    <div class="group">
+    <div class="section">
       <h2>Color by</h2>
-      <div class="chips" id="colorChips"></div>
+      <div class="row">
+        <select id="colorSel">
+          <option value="plddt">pLDDT / B-factor</option>
+          <option value="chain">Chain</option>
+          <option value="model">Loaded model</option>
+          <option value="element">Element</option>
+          <option value="uniform">Uniform</option>
+        </select>
+        <input type="color" id="uniformColor" value="#3b82f6">
+      </div>
+
+      <div class="legend" id="legend">
+        <span class="sw" style="background:#0053D6"></span><span>pLDDT ≥ 90 · very high</span>
+        <span class="sw" style="background:#65CBF3"></span><span>70–90 · confident</span>
+        <span class="sw" style="background:#FFDB13"></span><span>50–70 · low</span>
+        <span class="sw" style="background:#FF7D45"></span><span>&lt; 50 · very low</span>
+      </div>
     </div>
 
-    <div class="group">
+    <div class="section">
       <h2>View</h2>
-      <div class="toggles">
-        <button class="btn ghost" id="spinBtn">⟳ Spin</button>
-        <button class="btn ghost" id="centerBtn">⊙ Recenter</button>
+      <div class="grid2">
+        <button class="btn" id="spinBtn">Spin</button>
+        <button class="btn" id="stopBtn">Stop</button>
       </div>
     </div>
 
-    <div class="group">
-      <h2>Structure</h2>
-      <div class="readout" id="readout">
-        <div class="ttl">No structure loaded</div>
-        <div class="kv"><span>chains</span><b>—</b></div>
-        <div class="kv"><span>residues</span><b>—</b></div>
-        <div class="kv"><span>atoms</span><b>—</b></div>
-        <div class="status" id="status">Pick an example or enter a PDB ID.</div>
-      </div>
+    <div class="section">
+      <h2>Loaded structures</h2>
+      <div class="list" id="modelList"></div>
     </div>
 
-    <footer>
-      Structures fetched live from the RCSB Protein Data Bank.<br>
-      Rendering by NGL Viewer · LEEP BIOINFO, ICB-USP.
-    </footer>
+    <div class="section">
+      <h2>Status</h2>
+      <div class="status" id="status">
+        Waiting for structure.
+      </div>
+      <p class="note">
+        For AlphaFold/ColabFold/AF3-style PDB files, pLDDT is commonly stored in the B-factor column.
+        Experimental PDB files also have B-factors, but they do not mean pLDDT.
+      </p>
+    </div>
   </aside>
 
-  <!-- 3D canvas -->
-  <section class="stage-wrap">
-    <div id="viewport"></div>
-    <div class="overlay" id="overlay"><div class="spin"></div><span id="ovTxt">Loading…</span></div>
-  </section>
-</main>
+  <main class="stage">
+    <div id="viewer"></div>
+    <div class="warn" id="webglWarn">
+      <div class="warnbox">
+        <h1>WebGL is not available in this browser session</h1>
+        <p>
+          The 3D viewer needs WebGL. Open this page in a local Chrome/Firefox browser with hardware acceleration enabled.
+          If you are using a remote desktop, VNC, Open OnDemand, or a browser without GPU acceleration, WebGL may be disabled.
+        </p>
+        <p>
+          Test the browser at <code>get.webgl.org</code> and check whether hardware acceleration is enabled.
+        </p>
+      </div>
+    </div>
+  </main>
+</div>
 
 <script>
 (function(){
-  "use strict";
+"use strict";
 
-  // curated examples tied to LEEP research themes
-  var EXAMPLES = [
-    {id:"1UBQ", note:"Ubiquitin — protein family evolution"},
-    {id:"1LYZ", note:"Lysozyme — classic fold reference"},
-    {id:"4HHB", note:"Hemoglobin — multi-chain assembly"},
-    {id:"1EMA", note:"GFP — β-barrel architecture"},
-    {id:"6LU7", note:"SARS-CoV-2 Mpro — viral protease"}
-  ];
-  var REPRS  = ["cartoon","surface","ball+stick","spacefill","backbone","licorice"];
-  var COLORS = [
-    {k:"chainname",   label:"chain"},
-    {k:"sstruc",      label:"sec. structure"},
-    {k:"bfactor",     label:"B-factor"},
-    {k:"element",     label:"element"},
-    {k:"residueindex",label:"position"},
-    {k:"hydrophobicity",label:"hydrophob."}
-  ];
+var viewer=null;
+var models=[];
+var modelNames=[];
+var spinning=false;
 
-  var state = {repr:"cartoon", color:"chainname", spinning:false};
-  var comp = null;
+var statusEl=document.getElementById("status");
+var modelList=document.getElementById("modelList");
+var warn=document.getElementById("webglWarn");
 
-  // --- NGL stage ---
-  var stage = new NGL.Stage("viewport", {backgroundColor:"#070f1c"});
-  window.addEventListener("resize", function(){ stage.handleResize(); });
+var CHAIN_COLORS=[
+  "#3b82f6","#38bdf8","#34d399","#f59e0b","#a78bfa","#f472b6",
+  "#22d3ee","#fb7185","#a3e635","#60a5fa","#eab308","#ef4444"
+];
 
-  // --- DOM ---
-  var $ = function(id){ return document.getElementById(id); };
-  var overlay=$("overlay"), ovTxt=$("ovTxt"), statusEl=$("status"), readout=$("readout");
+var MODEL_COLORS=[
+  "#3b82f6","#34d399","#f59e0b","#a78bfa","#f472b6",
+  "#38bdf8","#fb7185","#a3e635"
+];
 
-  function setStatus(msg, cls){ statusEl.textContent = msg; statusEl.className = "status " + (cls||""); }
-  function showOverlay(t){ ovTxt.textContent=t||"Loading…"; overlay.classList.add("show"); }
-  function hideOverlay(){ overlay.classList.remove("show"); }
-
-  // build chip rows
-  function buildChips(host, items, getKey, getLabel, current, onPick){
-    host.innerHTML="";
-    items.forEach(function(it){
-      var key=getKey(it);
-      var b=document.createElement("button");
-      b.className="chip"+(key===current?" on":"");
-      b.textContent=getLabel(it);
-      b.onclick=function(){
-        host.querySelectorAll(".chip").forEach(function(c){c.classList.remove("on");});
-        b.classList.add("on");
-        onPick(key);
-      };
-      host.appendChild(b);
-    });
+function hasWebGL(){
+  try{
+    var c=document.createElement("canvas");
+    return !!(window.WebGLRenderingContext && (c.getContext("webgl") || c.getContext("experimental-webgl")));
+  }catch(e){
+    return false;
   }
-  buildChips($("reprChips"),  REPRS,  function(r){return r;}, function(r){return r;}, state.repr,
-    function(k){ state.repr=k; applyRepr(); });
-  buildChips($("colorChips"), COLORS, function(c){return c.k;}, function(c){return c.label;}, state.color,
-    function(k){ state.color=k; applyRepr(); });
+}
 
-  // examples
-  var exHost=$("examples");
-  EXAMPLES.forEach(function(e){
-    var b=document.createElement("button"); b.className="ex";
-    b.innerHTML='<code>'+e.id+'</code><small>'+e.note+'</small>';
-    b.onclick=function(){ $("pdbInput").value=e.id; loadPdb(e.id); };
-    exHost.appendChild(b);
+function setStatus(html){
+  statusEl.innerHTML=html;
+}
+
+function init(){
+  if(!hasWebGL() || typeof $3Dmol==="undefined"){
+    warn.classList.add("show");
+    setStatus("<b>WebGL unavailable.</b><br>Try a local browser with hardware acceleration.");
+    return;
+  }
+
+  try{
+    viewer=$3Dmol.createViewer("viewer",{
+      backgroundColor:"#07101d"
+    });
+
+    window.addEventListener("resize",function(){
+      if(viewer){
+        viewer.resize();
+        viewer.render();
+      }
+    });
+
+    setStatus("Viewer ready. Load one or more PDB/mmCIF files.");
+  }catch(e){
+    warn.classList.add("show");
+    setStatus("<b>Viewer failed to initialize.</b><br>"+String(e.message||e));
+  }
+}
+
+function guessFormat(name){
+  var n=(name||"").toLowerCase();
+
+  if(n.endsWith(".cif") || n.endsWith(".mmcif"))return "cif";
+  return "pdb";
+}
+
+function qualityColor(atom){
+  var b=Number(atom.b);
+
+  if(!isFinite(b))b=0;
+
+  if(b>=90)return "#0053D6";
+  if(b>=70)return "#65CBF3";
+  if(b>=50)return "#FFDB13";
+  return "#FF7D45";
+}
+
+function chainColor(atom){
+  var c=String(atom.chain || "A");
+  var code=0;
+
+  for(var i=0;i<c.length;i++){
+    code+=c.charCodeAt(i);
+  }
+
+  return CHAIN_COLORS[code % CHAIN_COLORS.length];
+}
+
+function elementColor(atom){
+  var e=String(atom.elem || atom.element || "").toUpperCase();
+
+  if(e==="C")return "#9fb3d0";
+  if(e==="N")return "#60a5fa";
+  if(e==="O")return "#fb7185";
+  if(e==="S")return "#facc15";
+  if(e==="P")return "#f59e0b";
+  if(e==="H")return "#e5e7eb";
+  return "#a78bfa";
+}
+
+function styleForModel(i){
+  var rep=document.getElementById("repSel").value;
+  var cm=document.getElementById("colorSel").value;
+  var uniform=document.getElementById("uniformColor").value;
+
+  var colorfunc;
+
+  if(cm==="plddt")colorfunc=qualityColor;
+  else if(cm==="chain")colorfunc=chainColor;
+  else if(cm==="element")colorfunc=elementColor;
+  else if(cm==="model"){
+    colorfunc=function(){return MODEL_COLORS[i % MODEL_COLORS.length];};
+  }else{
+    colorfunc=function(){return uniform;};
+  }
+
+  if(rep==="cartoon"){
+    return {cartoon:{colorfunc:colorfunc,thickness:0.45}};
+  }
+
+  if(rep==="stick"){
+    return {stick:{colorfunc:colorfunc,radius:0.18}};
+  }
+
+  if(rep==="sphere"){
+    return {sphere:{colorfunc:colorfunc,scale:0.28}};
+  }
+
+  return {line:{colorfunc:colorfunc,linewidth:1.2}};
+}
+
+function applyStyles(){
+  if(!viewer)return;
+
+  viewer.setStyle({},{});
+
+  models.forEach(function(m,i){
+    try{
+      m.setStyle({},styleForModel(i));
+    }catch(e){
+      viewer.setStyle({model:i},styleForModel(i));
+    }
   });
 
-  // (re)apply representation + coloring to the loaded component
-  function applyRepr(){
-    if(!comp) return;
-    comp.removeAllRepresentations();
-    var p={colorScheme:state.color};
-    if(state.repr==="surface"){ p.opacity=0.85; p.surfaceType="av"; }
-    comp.addRepresentation(state.repr, p);
+  viewer.render();
+  updateLegend();
+}
+
+function updateLegend(){
+  var cm=document.getElementById("colorSel").value;
+  var legend=document.getElementById("legend");
+
+  if(cm==="plddt"){
+    legend.style.display="grid";
+  }else{
+    legend.style.display="none";
+  }
+}
+
+function updateList(){
+  modelList.innerHTML="";
+
+  if(!modelNames.length){
+    modelList.innerHTML='<div class="item">No structures loaded.</div>';
+    return;
   }
 
-  function fillReadout(structure, title){
-    var name = title || structure.title || structure.name || "Structure";
-    var chains = structure.chainStore ? structure.chainStore.count : "—";
-    var resi   = structure.residueStore ? structure.residueStore.count : "—";
-    var atoms  = structure.atomCount != null ? structure.atomCount : "—";
-    readout.innerHTML =
-      '<div class="ttl">'+name+'</div>'+
-      '<div class="kv"><span>chains</span><b>'+chains+'</b></div>'+
-      '<div class="kv"><span>residues</span><b>'+resi+'</b></div>'+
-      '<div class="kv"><span>atoms</span><b>'+atoms+'</b></div>'+
-      '<div class="status ok" id="status">loaded ✓</div>';
-    statusEl=$("status");
-  }
+  modelNames.forEach(function(name,i){
+    var d=document.createElement("div");
+    d.className="item";
+    d.textContent=(i+1)+". "+name;
+    modelList.appendChild(d);
+  });
+}
 
-  function afterLoad(c, title){
-    comp=c;
-    applyRepr();
-    comp.autoView(600);
-    if(state.spinning) stage.setSpin(true);
-    fillReadout(c.structure, title);
-    hideOverlay();
-  }
+function afterLoad(name){
+  modelNames.push(name);
+  updateList();
+  applyStyles();
+  viewer.zoomTo();
+  viewer.render();
 
-  function loadPdb(id){
-    id=(id||"").trim().toUpperCase();
-    if(!/^[0-9A-Z]{4}$/.test(id)){ setStatus("PDB IDs have 4 characters (e.g. 1UBQ).","err"); return; }
-    stage.removeAllComponents(); comp=null;
-    showOverlay("Fetching "+id+" from RCSB…");
-    setStatus("loading "+id+"…","load");
-    stage.loadFile("rcsb://"+id).then(function(c){
-      afterLoad(c, id);
-    }).catch(function(){
-      hideOverlay();
-      setStatus("Could not load "+id+". Check the ID exists in the PDB.","err");
-    });
-  }
+  setStatus(
+    "<b>"+models.length+"</b> structure(s) loaded.<br>"+
+    "Color mode: <b>"+document.getElementById("colorSel").value+"</b>."
+  );
+}
 
-  function loadFile(file){
-    stage.removeAllComponents(); comp=null;
-    showOverlay("Reading "+file.name+"…");
-    setStatus("parsing local file…","load");
-    stage.loadFile(file).then(function(c){
-      afterLoad(c, file.name);
-    }).catch(function(){
-      hideOverlay();
-      setStatus("Could not parse that file. Use .pdb, .cif or .ent.","err");
-    });
-  }
+function addModelText(text,format,name){
+  if(!viewer)return;
 
-  // events
-  $("loadBtn").onclick=function(){ loadPdb($("pdbInput").value); };
-  $("pdbInput").addEventListener("keydown", function(e){ if(e.key==="Enter") loadPdb(this.value); });
-  $("fileInput").addEventListener("change", function(){ if(this.files[0]) loadFile(this.files[0]); });
-  $("spinBtn").onclick=function(){
-    state.spinning=!state.spinning; stage.setSpin(state.spinning);
-    this.classList.toggle("on", state.spinning);
-    this.style.color = state.spinning ? "#fff" : "";
-    this.style.borderColor = state.spinning ? "var(--accent)" : "";
+  try{
+    var model=viewer.addModel(text,format);
+    models.push(model);
+    afterLoad(name || ("model_"+models.length));
+  }catch(e){
+    setStatus("<b>Could not parse structure.</b><br>"+String(e.message||e));
+    alert("Could not parse structure: "+String(e.message||e));
+  }
+}
+
+function loadPdbIds(ids){
+  if(!viewer)return;
+
+  ids=ids
+    .split(/[,\s;]+/)
+    .map(function(x){return x.trim().toUpperCase();})
+    .filter(Boolean);
+
+  if(!ids.length)return;
+
+  setStatus("Loading "+ids.length+" PDB ID(s)...");
+
+  Promise.all(ids.map(function(id){
+    return fetch("https://files.rcsb.org/download/"+id+".pdb")
+      .then(function(r){
+        if(!r.ok)throw new Error(id+" not found at RCSB.");
+        return r.text();
+      })
+      .then(function(text){
+        addModelText(text,"pdb",id);
+      });
+  })).catch(function(e){
+    setStatus("<b>Load error.</b><br>"+String(e.message||e));
+    alert(String(e.message||e));
+  });
+}
+
+function clearAll(){
+  if(!viewer)return;
+
+  viewer.clear();
+  models=[];
+  modelNames=[];
+  updateList();
+  viewer.render();
+  setStatus("Viewer cleared.");
+}
+
+document.getElementById("loadPdbBtn").onclick=function(){
+  loadPdbIds(document.getElementById("pdbInput").value);
+};
+
+document.getElementById("pdbInput").addEventListener("keydown",function(e){
+  if(e.key==="Enter")loadPdbIds(this.value);
+});
+
+document.querySelectorAll(".ex").forEach(function(b){
+  b.onclick=function(){
+    document.getElementById("pdbInput").value=b.dataset.pdb;
+    loadPdbIds(b.dataset.pdb);
   };
-  $("centerBtn").onclick=function(){ if(comp) comp.autoView(500); };
+});
 
-  // first structure on load
-  loadPdb("1UBQ");
+document.getElementById("fileInput").onchange=function(){
+  var files=Array.from(this.files || []);
+
+  files.forEach(function(f){
+    var rd=new FileReader();
+
+    rd.onload=function(){
+      addModelText(rd.result,guessFormat(f.name),f.name);
+    };
+
+    rd.readAsText(f);
+  });
+
+  this.value="";
+};
+
+document.getElementById("repSel").onchange=applyStyles;
+document.getElementById("colorSel").onchange=applyStyles;
+document.getElementById("uniformColor").oninput=applyStyles;
+
+document.getElementById("clearBtn").onclick=clearAll;
+
+document.getElementById("recenterBtn").onclick=function(){
+  if(viewer){
+    viewer.zoomTo();
+    viewer.render();
+  }
+};
+
+document.getElementById("spinBtn").onclick=function(){
+  if(viewer){
+    spinning=true;
+    viewer.spin(true);
+  }
+};
+
+document.getElementById("stopBtn").onclick=function(){
+  if(viewer){
+    spinning=false;
+    viewer.spin(false);
+  }
+};
+
+init();
+updateList();
+updateLegend();
+
 })();
 </script>
+
 </body>
 </html>
