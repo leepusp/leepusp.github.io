@@ -259,8 +259,19 @@ input[type=color]{
 
 .seq-controls{
   display:grid;
-  grid-template-columns:minmax(180px,280px) 110px;
+  grid-template-columns:minmax(180px,280px) 110px 150px;
   gap:8px;
+}
+
+.multi-toggle{
+  min-width:150px;
+}
+
+.multi-toggle.on{
+  background:#ff2d75;
+  border-color:#ff8ab1;
+  color:#fff;
+  box-shadow:0 0 0 2px #ff2d7530;
 }
 
 .seq-meta{
@@ -310,12 +321,21 @@ input[type=color]{
   transform:translateY(-1px);
 }
 
+.residue.selected{
+  background:#8f1f4c;
+  border-color:#d94a82;
+  color:#fff;
+  font-weight:600;
+}
+
 .residue.active{
   background:#ff2d75;
-  border-color:#ff8ab1;
+  border-color:#ffffff;
   color:#fff;
   font-weight:700;
-  box-shadow:0 0 0 2px #ff2d7540;
+  box-shadow:
+    0 0 0 2px #ff2d7560,
+    0 0 12px #ff2d7550;
 }
 
 .residue.decade{
@@ -508,6 +528,14 @@ input[type=color]{
         <div class="seq-controls">
           <select id="seqModelSel" aria-label="Structure"></select>
           <select id="seqChainSel" aria-label="Chain"></select>
+          <button
+            class="btn multi-toggle"
+            id="multiSelectBtn"
+            type="button"
+            title="Keep multiple residues selected"
+          >
+            Multi-select: OFF
+          </button>
         </div>
       </div>
 
@@ -555,8 +583,17 @@ var spinning=false;
 
 /* Sequence / residue mapping state */
 var sequenceData=[];
+
+/*
+ * selectedResidues contains every residue explicitly selected from
+ * the sequence. activeResidue is the most recently selected member.
+ */
+var selectedResidues=[];
 var activeResidue=null;
-var activeResidueLabel=null;
+
+var activeResidueLabels=[];
+var multiSelectMode=false;
+
 var regionHighlights=[];
 
 var statusEl=document.getElementById("status");
@@ -786,8 +823,8 @@ function renderSequence(){
     b.dataset.resi=String(r.resi);
     b.dataset.icode=r.icode;
 
-    b.onclick=function(){
-      selectResidue(mi,r,i,b);
+    b.onclick=function(event){
+      selectResidue(mi,r,i,b,event);
     };
 
     seq.appendChild(b);
@@ -800,72 +837,241 @@ function renderSequence(){
   refreshActiveSequenceResidue();
 }
 
-function refreshActiveSequenceResidue(){
-  document.querySelectorAll("#sequenceView .residue.active")
-    .forEach(function(el){
-      el.classList.remove("active");
-    });
+function residueSelectionKey(r){
+  return [
+    r.modelIndex,
+    r.chain,
+    r.resi,
+    r.icode || ""
+  ].join("|");
+}
 
-  if(!activeResidue)return;
+function isResidueSelected(modelIndex,chain,resi,icode){
+  var key=[
+    modelIndex,
+    chain,
+    resi,
+    icode || ""
+  ].join("|");
+
+  return selectedResidues.some(function(r){
+    return residueSelectionKey(r)===key;
+  });
+}
+
+function refreshActiveSequenceResidue(){
 
   document.querySelectorAll("#sequenceView .residue")
     .forEach(function(el){
+      el.classList.remove("selected");
+      el.classList.remove("active");
+
+      var mi=Number(el.dataset.model);
+      var chain=el.dataset.chain;
+      var resi=el.dataset.resi;
+      var icode=el.dataset.icode || "";
+
       if(
-        Number(el.dataset.model)===activeResidue.modelIndex &&
-        el.dataset.chain===activeResidue.chain &&
-        String(el.dataset.resi)===String(activeResidue.resi) &&
-        String(el.dataset.icode || "")===String(activeResidue.icode || "")
+        isResidueSelected(
+          mi,
+          chain,
+          resi,
+          icode
+        )
+      ){
+        el.classList.add("selected");
+      }
+
+      if(
+        activeResidue &&
+        mi===activeResidue.modelIndex &&
+        chain===activeResidue.chain &&
+        String(resi)===String(activeResidue.resi) &&
+        String(icode)===String(activeResidue.icode || "")
       ){
         el.classList.add("active");
       }
     });
 }
 
-function selectResidue(modelIndex,residue,sequenceIndex,element){
-  activeResidue={
+function selectResidue(
+  modelIndex,
+  residue,
+  sequenceIndex,
+  element,
+  event
+){
+
+  var candidate={
     modelIndex:modelIndex,
     chain:residue.chain,
     resi:residue.resi,
     icode:residue.icode || "",
-    resn:residue.resn
+    resn:residue.resn,
+    aa:residue.aa,
+    b:residue.b,
+    sequenceIndex:sequenceIndex
   };
 
-  document.getElementById("regionInput").value=String(residue.resi);
+  /*
+   * Multi-selection can be enabled explicitly or temporarily by holding
+   * Ctrl / Cmd / Shift while clicking.
+   */
+  var additive=
+    multiSelectMode ||
+    (event && (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    ));
 
-  var q=Number.isFinite(residue.b)
-    ? residue.b.toFixed(2)
-    : "n/a";
+  var key=residueSelectionKey(candidate);
 
-  document.getElementById("residueInfo").innerHTML=
-    "<b>"+escapeHtml(residue.aa)+" · "+
-    escapeHtml(residue.resn)+" "+
-    escapeHtml(residue.chain)+":"+
-    escapeHtml(residue.resi)+
-    escapeHtml(residue.icode || "")+
-    "</b><br>"+
-    "Sequence position: <b>"+(sequenceIndex+1)+"</b><br>"+
-    "B-factor / pLDDT: <b>"+escapeHtml(q)+"</b>";
+  var existingIndex=selectedResidues.findIndex(function(r){
+    return residueSelectionKey(r)===key;
+  });
 
+  if(additive){
+
+    /*
+     * Clicking an already selected residue toggles it off.
+     */
+    if(existingIndex>=0){
+      selectedResidues.splice(existingIndex,1);
+
+      if(selectedResidues.length){
+        activeResidue=
+          selectedResidues[selectedResidues.length-1];
+      }else{
+        activeResidue=null;
+      }
+
+    }else{
+      selectedResidues.push(candidate);
+      activeResidue=candidate;
+    }
+
+  }else{
+
+    selectedResidues=[candidate];
+    activeResidue=candidate;
+  }
+
+  /*
+   * Keep the manual region field synchronized with clicked residues.
+   * This also means Highlight can immediately operate on the selection.
+   */
+  document.getElementById("regionInput").value=
+    selectedResidues
+      .filter(function(r){
+        return (
+          r.modelIndex===modelIndex &&
+          r.chain===residue.chain
+        );
+      })
+      .map(function(r){
+        return String(r.resi);
+      })
+      .join(",");
+
+  updateSelectedResidueInfo();
   refreshActiveSequenceResidue();
   applyStyles();
 
   /*
-   * Clicking a residue should answer immediately:
-   * "where is this amino acid in the structure?"
+   * Frame all selected residues belonging to the current model/chain.
    */
-  try{
-    viewer.zoomTo(
-      {
-        model:modelIndex,
-        chain:residue.chain,
-        resi:residue.resi
-      },
-      650
+  var currentSelected=selectedResidues.filter(function(r){
+    return (
+      r.modelIndex===modelIndex &&
+      r.chain===residue.chain
     );
-    viewer.render();
-  }catch(e){
-    console.warn("Could not focus selected residue",e);
+  });
+
+  if(currentSelected.length){
+    try{
+      viewer.zoomTo(
+        {
+          model:modelIndex,
+          chain:residue.chain,
+          resi:currentSelected.map(function(r){
+            return r.resi;
+          })
+        },
+        650
+      );
+
+      viewer.render();
+
+    }catch(e){
+      console.warn(
+        "Could not focus selected residues",
+        e
+      );
+    }
   }
+}
+
+function updateSelectedResidueInfo(){
+
+  var info=document.getElementById("residueInfo");
+
+  if(!selectedResidues.length){
+    info.innerHTML=
+      "Click an amino acid to locate it in the 3D structure.";
+    return;
+  }
+
+  if(selectedResidues.length===1){
+
+    var r=selectedResidues[0];
+
+    var q=Number.isFinite(r.b)
+      ? r.b.toFixed(2)
+      : "n/a";
+
+    info.innerHTML=
+      "<b>"+
+      escapeHtml(r.aa)+" · "+
+      escapeHtml(r.resn)+" "+
+      escapeHtml(r.chain)+":"+
+      escapeHtml(r.resi)+
+      escapeHtml(r.icode || "")+
+      "</b><br>"+
+      "Sequence position: <b>"+
+      (r.sequenceIndex+1)+
+      "</b><br>"+
+      "B-factor / pLDDT: <b>"+
+      escapeHtml(q)+
+      "</b>";
+
+    return;
+  }
+
+  var compact=selectedResidues
+    .slice(0,12)
+    .map(function(r){
+      return (
+        escapeHtml(r.chain)+":"+
+        escapeHtml(r.resi)+
+        " "+
+        escapeHtml(r.aa)
+      );
+    })
+    .join(" · ");
+
+  if(selectedResidues.length>12){
+    compact+=
+      " · … +"+
+      (selectedResidues.length-12)+
+      " more";
+  }
+
+  info.innerHTML=
+    "<b>"+
+    selectedResidues.length+
+    " residues selected</b><br>"+
+    compact;
 }
 
 function highlightStyle(color){
@@ -978,79 +1184,124 @@ function reapplyRegionHighlights(){
   });
 }
 
+function clearResidueLabels(){
+
+  if(!viewer)return;
+
+  activeResidueLabels.forEach(function(label){
+    try{
+      viewer.removeLabel(label);
+    }catch(e){}
+  });
+
+  activeResidueLabels=[];
+}
+
 function reapplyActiveResidue(){
 
-  if(activeResidueLabel && viewer){
+  clearResidueLabels();
+
+  if(!selectedResidues.length)return;
+
+  selectedResidues.forEach(function(r,index){
+
+    var model=models[r.modelIndex];
+
+    if(!model)return;
+
+    var isActive=
+      activeResidue &&
+      residueSelectionKey(r)===
+      residueSelectionKey(activeResidue);
+
+    var selector={
+      chain:r.chain,
+      resi:r.resi
+    };
+
     try{
-      viewer.removeLabel(activeResidueLabel);
-    }catch(e){}
-    activeResidueLabel=null;
-  }
 
-  if(!activeResidue)return;
-
-  var model=models[activeResidue.modelIndex];
-
-  if(!model)return;
-
-  var selector={
-    chain:activeResidue.chain,
-    resi:activeResidue.resi
-  };
-
-  try{
-
-    /* Entire selected side chain / residue */
-    model.addStyle(
-      selector,
-      {
-        stick:{
-          color:"#ff2d75",
-          radius:0.32
+      /*
+       * All selected residues are clearly shown as sticks.
+       */
+      model.addStyle(
+        selector,
+        {
+          stick:{
+            color:isActive
+              ? "#ff2d75"
+              : "#c92f68",
+            radius:isActive
+              ? 0.34
+              : 0.27
+          }
         }
-      }
-    );
+      );
 
-    /* Large C-alpha position marker */
-    model.addStyle(
-      {
-        chain:activeResidue.chain,
-        resi:activeResidue.resi,
-        atom:"CA"
-      },
-      {
-        sphere:{
-          color:"#ff2d75",
-          scale:0.75
+      /*
+       * C-alpha sphere makes the sequence → structure mapping obvious.
+       */
+      model.addStyle(
+        {
+          chain:r.chain,
+          resi:r.resi,
+          atom:"CA"
+        },
+        {
+          sphere:{
+            color:isActive
+              ? "#ff2d75"
+              : "#c92f68",
+            scale:isActive
+              ? 0.80
+              : 0.55
+          }
         }
-      }
-    );
+      );
 
-    activeResidueLabel=viewer.addLabel(
-      activeResidue.chain+":"+
-      activeResidue.resi+" "+
-      activeResidue.resn,
-      {
-        fontColor:"#ffffff",
-        backgroundColor:"#ff2d75",
-        backgroundOpacity:0.90,
-        borderColor:"#ffffff",
-        borderThickness:1,
-        fontSize:14,
-        padding:5,
-        inFront:true
-      },
-      {
-        model:activeResidue.modelIndex,
-        chain:activeResidue.chain,
-        resi:activeResidue.resi,
-        atom:"CA"
-      }
-    );
+      /*
+       * Labels are useful for several residues but become unreadable
+       * for large selections. Keep them for the first 12 residues.
+       */
+      if(index<12){
 
-  }catch(e){
-    console.warn("Could not mark active residue",e);
-  }
+        var label=viewer.addLabel(
+          r.chain+":"+
+          r.resi+" "+
+          r.resn,
+          {
+            fontColor:"#ffffff",
+            backgroundColor:isActive
+              ? "#ff2d75"
+              : "#7a2147",
+            backgroundOpacity:0.90,
+            borderColor:isActive
+              ? "#ffffff"
+              : "#c95482",
+            borderThickness:1,
+            fontSize:isActive ? 14 : 11,
+            padding:4,
+            inFront:true
+          },
+          {
+            model:r.modelIndex,
+            chain:r.chain,
+            resi:r.resi,
+            atom:"CA"
+          }
+        );
+
+        activeResidueLabels.push(label);
+      }
+
+    }catch(e){
+      console.warn(
+        "Could not mark selected residue",
+        r,
+        e
+      );
+    }
+  });
 }
 
 function addRegionHighlight(){
@@ -1117,22 +1368,19 @@ function focusRegion(){
 }
 
 function clearHighlights(){
+
   regionHighlights=[];
 
-  if(activeResidueLabel && viewer){
-    try{
-      viewer.removeLabel(activeResidueLabel);
-    }catch(e){}
-    activeResidueLabel=null;
-  }
+  clearResidueLabels();
 
+  selectedResidues=[];
   activeResidue=null;
 
   document.getElementById("regionInput").value="";
-  document.getElementById("residueInfo").textContent=
-    "Click an amino acid to map it onto the 3D structure.";
 
+  updateSelectedResidueInfo();
   refreshActiveSequenceResidue();
+
   applyStyles();
 }
 
@@ -1363,7 +1611,9 @@ function clearAll(){
   models=[];
   modelNames=[];
   sequenceData=[];
+  selectedResidues=[];
   activeResidue=null;
+  clearResidueLabels();
   regionHighlights=[];
 
   updateList();
@@ -1409,13 +1659,36 @@ document.getElementById("colorSel").onchange=applyStyles;
 document.getElementById("uniformColor").oninput=applyStyles;
 
 document.getElementById("seqModelSel").onchange=function(){
+  selectedResidues=[];
   activeResidue=null;
+  clearResidueLabels();
+  updateSelectedResidueInfo();
   populateChainSelect();
+  applyStyles();
 };
 
 document.getElementById("seqChainSel").onchange=function(){
+  selectedResidues=[];
   activeResidue=null;
+  clearResidueLabels();
+  updateSelectedResidueInfo();
   renderSequence();
+  applyStyles();
+};
+
+document.getElementById("multiSelectBtn").onclick=function(){
+
+  multiSelectMode=!multiSelectMode;
+
+  this.classList.toggle(
+    "on",
+    multiSelectMode
+  );
+
+  this.textContent=
+    multiSelectMode
+      ? "Multi-select: ON"
+      : "Multi-select: OFF";
 };
 
 document.getElementById("highlightBtn").onclick=addRegionHighlight;
