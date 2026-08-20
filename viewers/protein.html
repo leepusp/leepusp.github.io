@@ -215,6 +215,92 @@ input[type=color]{
   color:#64799a;
   line-height:1.55;
 }
+
+/* Sequence ↔ structure mapping */
+.seq-controls{
+  display:grid;
+  grid-template-columns:1fr 92px;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.seq-meta{
+  font-family:var(--mono);
+  font-size:.68rem;
+  color:#8195b0;
+  line-height:1.45;
+  margin-bottom:8px;
+}
+
+.sequence-view{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:2px;
+  max-height:210px;
+  overflow:auto;
+  padding:8px;
+  background:#071321;
+  border:1px solid var(--line);
+  border-radius:8px;
+  margin-bottom:8px;
+}
+
+.residue{
+  appearance:none;
+  border:0;
+  padding:0;
+  margin:0;
+  width:20px;
+  height:23px;
+  display:grid;
+  place-items:center;
+  border-radius:4px;
+  background:transparent;
+  color:#c9d8eb;
+  font-family:var(--mono);
+  font-size:.72rem;
+  cursor:pointer;
+  transition:.12s;
+}
+
+.residue:hover{
+  background:#183658;
+  color:#fff;
+}
+
+.residue.active{
+  background:#e6edf6;
+  color:#07101d;
+  font-weight:700;
+  outline:1px solid #fff;
+}
+
+.residue.decade{
+  margin-right:6px;
+}
+
+.seq-gap{
+  display:inline-grid;
+  place-items:center;
+  min-width:20px;
+  height:23px;
+  color:#f59e0b;
+  font-family:var(--mono);
+  font-size:.70rem;
+}
+
+.seq-selected{
+  margin-bottom:8px;
+}
+
+.region-row{
+  display:grid;
+  grid-template-columns:1fr 42px;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
 .warn{
   position:absolute;
   inset:0;
@@ -329,6 +415,55 @@ input[type=color]{
     </div>
 
     <div class="section">
+      <h2>Sequence / residue map</h2>
+
+      <div class="seq-controls">
+        <select id="seqModelSel" aria-label="Structure"></select>
+        <select id="seqChainSel" aria-label="Chain"></select>
+      </div>
+
+      <div class="seq-meta" id="seqMeta">
+        Load a structure to display its observed protein sequence.
+      </div>
+
+      <div class="sequence-view" id="sequenceView"></div>
+
+      <div class="status seq-selected" id="residueInfo">
+        Click an amino acid to map it onto the 3D structure.
+      </div>
+
+      <div class="region-row">
+        <input
+          id="regionInput"
+          type="text"
+          placeholder="Residues: 45-78,102"
+          aria-label="Residue range"
+        >
+        <input
+          id="regionColor"
+          type="color"
+          value="#ff4d6d"
+          aria-label="Region color"
+        >
+      </div>
+
+      <div class="grid2" style="margin-bottom:8px">
+        <button class="btn" id="highlightBtn">Highlight</button>
+        <button class="btn" id="focusBtn">Focus</button>
+      </div>
+
+      <button class="btn full" id="clearHighlightBtn">
+        Clear highlights
+      </button>
+
+      <p class="note">
+        Sequence is derived from amino-acid residues present in the loaded
+        coordinates. Residue numbers therefore follow the structure file,
+        not necessarily UniProt numbering. Numbering jumps are shown as ⋯.
+      </p>
+    </div>
+
+    <div class="section">
       <h2>Loaded structures</h2>
       <div class="list" id="modelList"></div>
     </div>
@@ -371,6 +506,11 @@ var models=[];
 var modelNames=[];
 var spinning=false;
 
+/* Sequence / residue mapping state */
+var sequenceData=[];
+var activeResidue=null;
+var regionHighlights=[];
+
 var statusEl=document.getElementById("status");
 var modelList=document.getElementById("modelList");
 var warn=document.getElementById("webglWarn");
@@ -384,6 +524,492 @@ var MODEL_COLORS=[
   "#3b82f6","#34d399","#f59e0b","#a78bfa","#f472b6",
   "#38bdf8","#fb7185","#a3e635"
 ];
+
+var AA3={
+  ALA:"A",ARG:"R",ASN:"N",ASP:"D",CYS:"C",
+  GLN:"Q",GLU:"E",GLY:"G",HIS:"H",ILE:"I",
+  LEU:"L",LYS:"K",MET:"M",PHE:"F",PRO:"P",
+  SER:"S",THR:"T",TRP:"W",TYR:"Y",VAL:"V",
+
+  /* Common protein-coordinate variants */
+  MSE:"M",SEC:"U",PYL:"O",ASX:"B",GLX:"Z"
+};
+
+function escapeHtml(value){
+  return String(value)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function extractProteinSequence(model){
+  var atoms=[];
+
+  try{
+    atoms=model.selectedAtoms({atom:"CA"}) || [];
+  }catch(e){
+    return [];
+  }
+
+  var seen={};
+  var residues=[];
+
+  atoms.forEach(function(atom){
+    var resn=String(atom.resn || "").toUpperCase();
+
+    if(!AA3[resn])return;
+
+    var chain=String(atom.chain || "_");
+    var resi=atom.resi;
+    var icode=String(atom.icode || "");
+
+    var key=chain+"|"+String(resi)+"|"+icode;
+
+    if(seen[key])return;
+    seen[key]=true;
+
+    residues.push({
+      chain:chain,
+      resi:resi,
+      icode:icode,
+      resn:resn,
+      aa:AA3[resn],
+      b:Number(atom.b)
+    });
+  });
+
+  return residues;
+}
+
+function getSequenceModelIndex(){
+  var el=document.getElementById("seqModelSel");
+
+  if(!el || !models.length)return -1;
+
+  var i=Number(el.value);
+
+  if(!Number.isInteger(i) || i<0 || i>=models.length)return -1;
+
+  return i;
+}
+
+function getCurrentChainResidues(){
+  var mi=getSequenceModelIndex();
+
+  if(mi<0)return [];
+
+  var chain=document.getElementById("seqChainSel").value;
+
+  return (sequenceData[mi] || []).filter(function(r){
+    return r.chain===chain;
+  });
+}
+
+function updateSequenceControls(selectNewest){
+  var modelSel=document.getElementById("seqModelSel");
+  var chainSel=document.getElementById("seqChainSel");
+  var seq=document.getElementById("sequenceView");
+  var meta=document.getElementById("seqMeta");
+
+  modelSel.innerHTML="";
+  chainSel.innerHTML="";
+  seq.innerHTML="";
+
+  if(!models.length){
+    meta.textContent="Load a structure to display its observed protein sequence.";
+    document.getElementById("residueInfo").textContent=
+      "Click an amino acid to map it onto the 3D structure.";
+    return;
+  }
+
+  modelNames.forEach(function(name,i){
+    var o=document.createElement("option");
+    o.value=String(i);
+    o.textContent=(i+1)+". "+name;
+    modelSel.appendChild(o);
+  });
+
+  if(selectNewest){
+    modelSel.value=String(models.length-1);
+  }
+
+  populateChainSelect();
+}
+
+function populateChainSelect(preferredChain){
+  var mi=getSequenceModelIndex();
+  var chainSel=document.getElementById("seqChainSel");
+  var meta=document.getElementById("seqMeta");
+  var seq=document.getElementById("sequenceView");
+
+  chainSel.innerHTML="";
+  seq.innerHTML="";
+
+  if(mi<0)return;
+
+  var residues=sequenceData[mi] || [];
+  var chains=[];
+
+  residues.forEach(function(r){
+    if(chains.indexOf(r.chain)===-1)chains.push(r.chain);
+  });
+
+  if(!chains.length){
+    meta.textContent=
+      "No standard amino-acid Cα residues were detected in this model.";
+    return;
+  }
+
+  chains.forEach(function(chain){
+    var o=document.createElement("option");
+    o.value=chain;
+    o.textContent="Chain "+chain;
+    chainSel.appendChild(o);
+  });
+
+  if(preferredChain && chains.indexOf(preferredChain)!==-1){
+    chainSel.value=preferredChain;
+  }
+
+  renderSequence();
+}
+
+function renderSequence(){
+  var mi=getSequenceModelIndex();
+  var chain=document.getElementById("seqChainSel").value;
+  var residues=getCurrentChainResidues();
+  var seq=document.getElementById("sequenceView");
+  var meta=document.getElementById("seqMeta");
+
+  seq.innerHTML="";
+
+  if(mi<0 || !residues.length){
+    meta.textContent="No protein residues available for this chain.";
+    return;
+  }
+
+  meta.textContent=
+    modelNames[mi]+" · Chain "+chain+
+    " · "+residues.length+" observed residues";
+
+  var previousNumeric=null;
+
+  residues.forEach(function(r,i){
+    var currentNumeric=Number(r.resi);
+
+    /*
+     * A discontinuity in structure numbering is displayed explicitly.
+     * This is intentionally called a numbering jump rather than claiming
+     * that the missing numbers are necessarily unresolved residues.
+     */
+    if(
+      previousNumeric!==null &&
+      Number.isFinite(currentNumeric) &&
+      currentNumeric>previousNumeric+1
+    ){
+      var gap=document.createElement("span");
+      gap.className="seq-gap";
+      gap.textContent="⋯";
+      gap.title=
+        "Structure numbering jump: "+
+        previousNumeric+" → "+currentNumeric;
+      seq.appendChild(gap);
+    }
+
+    var b=document.createElement("button");
+    b.type="button";
+    b.className="residue"+(((i+1)%10===0) ? " decade" : "");
+    b.textContent=r.aa;
+
+    var quality=Number.isFinite(r.b)
+      ? " · B/pLDDT "+r.b.toFixed(1)
+      : "";
+
+    b.title=
+      "Sequence position "+(i+1)+
+      " · "+r.chain+":"+r.resi+r.icode+
+      " "+r.resn+
+      quality;
+
+    b.dataset.model=String(mi);
+    b.dataset.chain=r.chain;
+    b.dataset.resi=String(r.resi);
+    b.dataset.icode=r.icode;
+
+    b.onclick=function(){
+      selectResidue(mi,r,i,b);
+    };
+
+    seq.appendChild(b);
+
+    if(Number.isFinite(currentNumeric)){
+      previousNumeric=currentNumeric;
+    }
+  });
+
+  refreshActiveSequenceResidue();
+}
+
+function refreshActiveSequenceResidue(){
+  document.querySelectorAll("#sequenceView .residue.active")
+    .forEach(function(el){
+      el.classList.remove("active");
+    });
+
+  if(!activeResidue)return;
+
+  document.querySelectorAll("#sequenceView .residue")
+    .forEach(function(el){
+      if(
+        Number(el.dataset.model)===activeResidue.modelIndex &&
+        el.dataset.chain===activeResidue.chain &&
+        String(el.dataset.resi)===String(activeResidue.resi) &&
+        String(el.dataset.icode || "")===String(activeResidue.icode || "")
+      ){
+        el.classList.add("active");
+      }
+    });
+}
+
+function selectResidue(modelIndex,residue,sequenceIndex,element){
+  activeResidue={
+    modelIndex:modelIndex,
+    chain:residue.chain,
+    resi:residue.resi,
+    icode:residue.icode || ""
+  };
+
+  document.getElementById("regionInput").value=String(residue.resi);
+
+  var q=Number.isFinite(residue.b)
+    ? residue.b.toFixed(2)
+    : "n/a";
+
+  document.getElementById("residueInfo").innerHTML=
+    "<b>"+escapeHtml(residue.aa)+" · "+
+    escapeHtml(residue.resn)+" "+
+    escapeHtml(residue.chain)+":"+
+    escapeHtml(residue.resi)+
+    escapeHtml(residue.icode || "")+
+    "</b><br>"+
+    "Sequence position: <b>"+(sequenceIndex+1)+"</b><br>"+
+    "B-factor / pLDDT: <b>"+escapeHtml(q)+"</b>";
+
+  refreshActiveSequenceResidue();
+  applyStyles();
+}
+
+function highlightStyle(color){
+  var rep=document.getElementById("repSel").value;
+
+  if(rep==="cartoon"){
+    return {
+      cartoon:{
+        color:color,
+        thickness:0.52
+      }
+    };
+  }
+
+  if(rep==="stick"){
+    return {
+      stick:{
+        color:color,
+        radius:0.22
+      }
+    };
+  }
+
+  if(rep==="sphere"){
+    return {
+      sphere:{
+        color:color,
+        scale:0.32
+      }
+    };
+  }
+
+  return {
+    line:{
+      color:color,
+      linewidth:2.0
+    }
+  };
+}
+
+function parseRegionInput(spec,residues){
+  var available={};
+
+  residues.forEach(function(r){
+    var n=Number(r.resi);
+
+    if(Number.isInteger(n)){
+      available[n]=true;
+    }
+  });
+
+  var wanted={};
+
+  String(spec || "")
+    .trim()
+    .split(/[\s,;]+/)
+    .filter(Boolean)
+    .forEach(function(token){
+      var range=token.match(/^(-?\d+)-(-?\d+)$/);
+
+      if(range){
+        var a=Number(range[1]);
+        var b=Number(range[2]);
+
+        var lo=Math.min(a,b);
+        var hi=Math.max(a,b);
+
+        Object.keys(available).forEach(function(x){
+          var n=Number(x);
+
+          if(n>=lo && n<=hi){
+            wanted[n]=true;
+          }
+        });
+
+        return;
+      }
+
+      if(/^-?\d+$/.test(token)){
+        var n=Number(token);
+
+        if(available[n]){
+          wanted[n]=true;
+        }
+      }
+    });
+
+  return Object.keys(wanted)
+    .map(Number)
+    .sort(function(a,b){return a-b;});
+}
+
+function reapplyRegionHighlights(){
+  regionHighlights.forEach(function(h){
+    var model=models[h.modelIndex];
+
+    if(!model)return;
+
+    try{
+      model.setStyle(
+        {
+          chain:h.chain,
+          resi:h.resis
+        },
+        highlightStyle(h.color)
+      );
+    }catch(e){
+      console.warn("Could not apply region highlight",e);
+    }
+  });
+}
+
+function reapplyActiveResidue(){
+  if(!activeResidue)return;
+
+  var model=models[activeResidue.modelIndex];
+
+  if(!model)return;
+
+  try{
+    model.addStyle(
+      {
+        chain:activeResidue.chain,
+        resi:activeResidue.resi
+      },
+      {
+        stick:{
+          color:"#ffffff",
+          radius:0.25
+        }
+      }
+    );
+  }catch(e){
+    console.warn("Could not mark active residue",e);
+  }
+}
+
+function addRegionHighlight(){
+  var mi=getSequenceModelIndex();
+
+  if(mi<0)return;
+
+  var chain=document.getElementById("seqChainSel").value;
+  var residues=getCurrentChainResidues();
+  var spec=document.getElementById("regionInput").value;
+  var color=document.getElementById("regionColor").value;
+  var resis=parseRegionInput(spec,residues);
+
+  if(!resis.length){
+    document.getElementById("residueInfo").innerHTML=
+      "<b>No matching residues.</b><br>"+
+      "Use structure residue numbers, e.g. 45-78,102.";
+    return;
+  }
+
+  regionHighlights.push({
+    modelIndex:mi,
+    chain:chain,
+    resis:resis,
+    color:color
+  });
+
+  applyStyles();
+
+  document.getElementById("residueInfo").innerHTML=
+    "<b>Highlighted "+resis.length+" residue(s)</b><br>"+
+    "Model: "+escapeHtml(modelNames[mi])+
+    " · Chain "+escapeHtml(chain)+
+    " · "+escapeHtml(spec);
+}
+
+function focusRegion(){
+  if(!viewer)return;
+
+  var mi=getSequenceModelIndex();
+
+  if(mi<0)return;
+
+  var chain=document.getElementById("seqChainSel").value;
+  var residues=getCurrentChainResidues();
+  var spec=document.getElementById("regionInput").value;
+  var resis=parseRegionInput(spec,residues);
+
+  if(!resis.length && activeResidue){
+    resis=[Number(activeResidue.resi)];
+    chain=activeResidue.chain;
+    mi=activeResidue.modelIndex;
+  }
+
+  if(!resis.length)return;
+
+  viewer.zoomTo({
+    model:mi,
+    chain:chain,
+    resi:resis
+  });
+
+  viewer.render();
+}
+
+function clearHighlights(){
+  regionHighlights=[];
+  activeResidue=null;
+
+  document.getElementById("regionInput").value="";
+  document.getElementById("residueInfo").textContent=
+    "Click an amino acid to map it onto the 3D structure.";
+
+  refreshActiveSequenceResidue();
+  applyStyles();
+}
 
 function hasWebGL(){
   try{
@@ -509,6 +1135,13 @@ function applyStyles(){
     }
   });
 
+  /*
+   * Global coloring is applied first. User-selected regions then override
+   * that style, and the active residue receives a white stick overlay.
+   */
+  reapplyRegionHighlights();
+  reapplyActiveResidue();
+
   viewer.render();
   updateLegend();
 }
@@ -542,7 +1175,12 @@ function updateList(){
 
 function afterLoad(name){
   modelNames.push(name);
+
+  var newestModel=models[models.length-1];
+  sequenceData.push(extractProteinSequence(newestModel));
+
   updateList();
+  updateSequenceControls(true);
   applyStyles();
   viewer.zoomTo();
   viewer.render();
@@ -599,7 +1237,13 @@ function clearAll(){
   viewer.clear();
   models=[];
   modelNames=[];
+  sequenceData=[];
+  activeResidue=null;
+  regionHighlights=[];
+
   updateList();
+  updateSequenceControls(false);
+
   viewer.render();
   setStatus("Viewer cleared.");
 }
@@ -639,6 +1283,26 @@ document.getElementById("repSel").onchange=applyStyles;
 document.getElementById("colorSel").onchange=applyStyles;
 document.getElementById("uniformColor").oninput=applyStyles;
 
+document.getElementById("seqModelSel").onchange=function(){
+  activeResidue=null;
+  populateChainSelect();
+};
+
+document.getElementById("seqChainSel").onchange=function(){
+  activeResidue=null;
+  renderSequence();
+};
+
+document.getElementById("highlightBtn").onclick=addRegionHighlight;
+document.getElementById("focusBtn").onclick=focusRegion;
+document.getElementById("clearHighlightBtn").onclick=clearHighlights;
+
+document.getElementById("regionInput").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){
+    addRegionHighlight();
+  }
+});
+
 document.getElementById("clearBtn").onclick=clearAll;
 
 document.getElementById("recenterBtn").onclick=function(){
@@ -665,6 +1329,7 @@ document.getElementById("stopBtn").onclick=function(){
 init();
 updateList();
 updateLegend();
+updateSequenceControls(false);
 
 })();
 </script>
