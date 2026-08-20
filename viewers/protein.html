@@ -217,90 +217,138 @@ input[type=color]{
 }
 
 /* Sequence ↔ structure mapping */
+
+.stage{
+  position:relative;
+  min-height:0;
+  display:grid;
+  grid-template-rows:minmax(0,1fr) auto;
+  background:#07101d;
+}
+
+.viewer-wrap{
+  position:relative;
+  min-height:0;
+}
+
+#viewer{
+  position:absolute;
+  inset:0;
+}
+
+.sequence-dock{
+  background:#0c192b;
+  border-top:1px solid var(--line);
+  padding:12px 16px 14px;
+  max-height:310px;
+  overflow:auto;
+  z-index:3;
+}
+
+.sequence-dock-head{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:20px;
+  align-items:start;
+  margin-bottom:8px;
+}
+
+.sequence-dock h2{
+  margin-bottom:4px;
+}
+
 .seq-controls{
   display:grid;
-  grid-template-columns:1fr 92px;
+  grid-template-columns:minmax(180px,280px) 110px;
   gap:8px;
-  margin-bottom:8px;
 }
 
 .seq-meta{
   font-family:var(--mono);
-  font-size:.68rem;
+  font-size:.70rem;
   color:#8195b0;
-  line-height:1.45;
-  margin-bottom:8px;
+  line-height:1.4;
 }
 
 .sequence-view{
   display:flex;
   flex-wrap:wrap;
   align-items:center;
-  gap:2px;
-  max-height:210px;
+  gap:3px;
   overflow:auto;
-  padding:8px;
+  padding:10px 12px;
+  min-height:58px;
+  max-height:145px;
   background:#071321;
   border:1px solid var(--line);
   border-radius:8px;
-  margin-bottom:8px;
+  margin-bottom:10px;
 }
 
 .residue{
   appearance:none;
-  border:0;
+  border:1px solid transparent;
   padding:0;
   margin:0;
-  width:20px;
-  height:23px;
+  width:25px;
+  height:28px;
   display:grid;
   place-items:center;
-  border-radius:4px;
-  background:transparent;
-  color:#c9d8eb;
+  border-radius:5px;
+  background:#0b182a;
+  color:#d8e5f5;
   font-family:var(--mono);
-  font-size:.72rem;
+  font-size:.76rem;
   cursor:pointer;
   transition:.12s;
 }
 
 .residue:hover{
-  background:#183658;
+  background:#19395e;
+  border-color:#3b82f6;
   color:#fff;
+  transform:translateY(-1px);
 }
 
 .residue.active{
-  background:#e6edf6;
-  color:#07101d;
+  background:#ff2d75;
+  border-color:#ff8ab1;
+  color:#fff;
   font-weight:700;
-  outline:1px solid #fff;
+  box-shadow:0 0 0 2px #ff2d7540;
 }
 
 .residue.decade{
-  margin-right:6px;
+  margin-right:8px;
 }
 
 .seq-gap{
   display:inline-grid;
   place-items:center;
-  min-width:20px;
-  height:23px;
+  min-width:25px;
+  height:28px;
   color:#f59e0b;
   font-family:var(--mono);
-  font-size:.70rem;
+}
+
+.sequence-actions{
+  display:grid;
+  grid-template-columns:minmax(250px,420px) 1fr;
+  gap:12px;
+  align-items:center;
 }
 
 .seq-selected{
-  margin-bottom:8px;
+  min-height:42px;
 }
 
-.region-row{
+.region-controls{
   display:grid;
-  grid-template-columns:1fr 42px;
+  grid-template-columns:minmax(170px,1fr) 42px auto auto auto;
   gap:8px;
   align-items:center;
-  margin-bottom:8px;
 }
+
 .warn{
   position:absolute;
   inset:0;
@@ -415,55 +463,6 @@ input[type=color]{
     </div>
 
     <div class="section">
-      <h2>Sequence / residue map</h2>
-
-      <div class="seq-controls">
-        <select id="seqModelSel" aria-label="Structure"></select>
-        <select id="seqChainSel" aria-label="Chain"></select>
-      </div>
-
-      <div class="seq-meta" id="seqMeta">
-        Load a structure to display its observed protein sequence.
-      </div>
-
-      <div class="sequence-view" id="sequenceView"></div>
-
-      <div class="status seq-selected" id="residueInfo">
-        Click an amino acid to map it onto the 3D structure.
-      </div>
-
-      <div class="region-row">
-        <input
-          id="regionInput"
-          type="text"
-          placeholder="Residues: 45-78,102"
-          aria-label="Residue range"
-        >
-        <input
-          id="regionColor"
-          type="color"
-          value="#ff4d6d"
-          aria-label="Region color"
-        >
-      </div>
-
-      <div class="grid2" style="margin-bottom:8px">
-        <button class="btn" id="highlightBtn">Highlight</button>
-        <button class="btn" id="focusBtn">Focus</button>
-      </div>
-
-      <button class="btn full" id="clearHighlightBtn">
-        Clear highlights
-      </button>
-
-      <p class="note">
-        Sequence is derived from amino-acid residues present in the loaded
-        coordinates. Residue numbers therefore follow the structure file,
-        not necessarily UniProt numbering. Numbering jumps are shown as ⋯.
-      </p>
-    </div>
-
-    <div class="section">
       <h2>Loaded structures</h2>
       <div class="list" id="modelList"></div>
     </div>
@@ -481,19 +480,67 @@ input[type=color]{
   </aside>
 
   <main class="stage">
-    <div id="viewer"></div>
-    <div class="warn" id="webglWarn">
-      <div class="warnbox">
-        <h1>WebGL is not available in this browser session</h1>
-        <p>
-          The 3D viewer needs WebGL. Open this page in a local Chrome/Firefox browser with hardware acceleration enabled.
-          If you are using a remote desktop, VNC, Open OnDemand, or a browser without GPU acceleration, WebGL may be disabled.
-        </p>
-        <p>
-          Test the browser at <code>get.webgl.org</code> and check whether hardware acceleration is enabled.
-        </p>
+
+    <div class="viewer-wrap">
+      <div id="viewer"></div>
+
+      <div class="warn" id="webglWarn">
+        <div class="warnbox">
+          <h1>WebGL is not available in this browser session</h1>
+          <p>
+            The 3D viewer needs WebGL. Open this page in a local
+            Chrome/Firefox browser with hardware acceleration enabled.
+          </p>
+        </div>
       </div>
     </div>
+
+    <section class="sequence-dock">
+
+      <div class="sequence-dock-head">
+        <div>
+          <h2>Sequence / residue map</h2>
+          <div class="seq-meta" id="seqMeta">
+            Load a structure to display its observed protein sequence.
+          </div>
+        </div>
+
+        <div class="seq-controls">
+          <select id="seqModelSel" aria-label="Structure"></select>
+          <select id="seqChainSel" aria-label="Chain"></select>
+        </div>
+      </div>
+
+      <div class="sequence-view" id="sequenceView"></div>
+
+      <div class="sequence-actions">
+
+        <div class="status seq-selected" id="residueInfo">
+          Click an amino acid to locate it in the 3D structure.
+        </div>
+
+        <div class="region-controls">
+          <input
+            id="regionInput"
+            type="text"
+            placeholder="Residues: 45-78,102"
+          >
+
+          <input
+            id="regionColor"
+            type="color"
+            value="#ff2d75"
+          >
+
+          <button class="btn" id="highlightBtn">Highlight</button>
+          <button class="btn" id="focusBtn">Focus</button>
+          <button class="btn" id="clearHighlightBtn">Clear</button>
+        </div>
+
+      </div>
+
+    </section>
+
   </main>
 </div>
 
@@ -509,6 +556,7 @@ var spinning=false;
 /* Sequence / residue mapping state */
 var sequenceData=[];
 var activeResidue=null;
+var activeResidueLabel=null;
 var regionHighlights=[];
 
 var statusEl=document.getElementById("status");
@@ -778,7 +826,8 @@ function selectResidue(modelIndex,residue,sequenceIndex,element){
     modelIndex:modelIndex,
     chain:residue.chain,
     resi:residue.resi,
-    icode:residue.icode || ""
+    icode:residue.icode || "",
+    resn:residue.resn
   };
 
   document.getElementById("regionInput").value=String(residue.resi);
@@ -799,6 +848,24 @@ function selectResidue(modelIndex,residue,sequenceIndex,element){
 
   refreshActiveSequenceResidue();
   applyStyles();
+
+  /*
+   * Clicking a residue should answer immediately:
+   * "where is this amino acid in the structure?"
+   */
+  try{
+    viewer.zoomTo(
+      {
+        model:modelIndex,
+        chain:residue.chain,
+        resi:residue.resi
+      },
+      650
+    );
+    viewer.render();
+  }catch(e){
+    console.warn("Could not focus selected residue",e);
+  }
 }
 
 function highlightStyle(color){
@@ -912,25 +979,75 @@ function reapplyRegionHighlights(){
 }
 
 function reapplyActiveResidue(){
+
+  if(activeResidueLabel && viewer){
+    try{
+      viewer.removeLabel(activeResidueLabel);
+    }catch(e){}
+    activeResidueLabel=null;
+  }
+
   if(!activeResidue)return;
 
   var model=models[activeResidue.modelIndex];
 
   if(!model)return;
 
+  var selector={
+    chain:activeResidue.chain,
+    resi:activeResidue.resi
+  };
+
   try{
+
+    /* Entire selected side chain / residue */
     model.addStyle(
-      {
-        chain:activeResidue.chain,
-        resi:activeResidue.resi
-      },
+      selector,
       {
         stick:{
-          color:"#ffffff",
-          radius:0.25
+          color:"#ff2d75",
+          radius:0.32
         }
       }
     );
+
+    /* Large C-alpha position marker */
+    model.addStyle(
+      {
+        chain:activeResidue.chain,
+        resi:activeResidue.resi,
+        atom:"CA"
+      },
+      {
+        sphere:{
+          color:"#ff2d75",
+          scale:0.75
+        }
+      }
+    );
+
+    activeResidueLabel=viewer.addLabel(
+      activeResidue.chain+":"+
+      activeResidue.resi+" "+
+      activeResidue.resn,
+      {
+        fontColor:"#ffffff",
+        backgroundColor:"#ff2d75",
+        backgroundOpacity:0.90,
+        borderColor:"#ffffff",
+        borderThickness:1,
+        fontSize:14,
+        padding:5,
+        inFront:true
+      },
+      {
+        model:activeResidue.modelIndex,
+        chain:activeResidue.chain,
+        resi:activeResidue.resi,
+        atom:"CA"
+      }
+    );
+
   }catch(e){
     console.warn("Could not mark active residue",e);
   }
@@ -1001,6 +1118,14 @@ function focusRegion(){
 
 function clearHighlights(){
   regionHighlights=[];
+
+  if(activeResidueLabel && viewer){
+    try{
+      viewer.removeLabel(activeResidueLabel);
+    }catch(e){}
+    activeResidueLabel=null;
+  }
+
   activeResidue=null;
 
   document.getElementById("regionInput").value="";
